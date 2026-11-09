@@ -1,6 +1,6 @@
 name: Android Build
 
-# Builds the Dijah Dash Android APK in the cloud with barichello/godot-ci.
+# Builds the Dijah's Delights Candy Run Android APK in the cloud with barichello/godot-ci.
 # Runs on every push to main and on version tags (v1.0.0 etc.).
 # Tag pushes also publish a GitHub Release with the APK attached.
 # No secrets needed: the debug keystore is generated in the job and the
@@ -15,8 +15,9 @@ on:
 jobs:
   export-android:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     container:
-      image: barichello/godot-ci:4.2
+      image: barichello/godot-ci:4.2.2
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,7 +25,7 @@ jobs:
       - name: Set up export templates
         run: |
           mkdir -p ~/.local/share/godot/export_templates/
-          mv /root/.local/share/godot/export_templates/4.2.stable ~/.local/share/godot/export_templates/4.2.stable || true
+          mv /root/.local/share/godot/export_templates/4.2.2.stable ~/.local/share/godot/export_templates/4.2.2.stable || true
 
       - name: Generate debug keystore
         working-directory: godot-project
@@ -37,7 +38,7 @@ jobs:
           fi
 
       - name: Import project
-        run: godot --headless --import --path godot-project
+        run: godot --headless --import --path godot-project --audio-driver Dummy --verbose
 
       - name: Export Android APK (debug)
         run: godot --headless --path godot-project --export-debug "Android" godot-project/dijah-dash.apk
