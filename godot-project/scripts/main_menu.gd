@@ -1,5 +1,5 @@
 extends Control
-## Dijah Dash — main menu: title, Play, Shop, mute, best score.
+## Dijah's Delights Candy Run — main menu: title, Play, Shop, mute, best score.
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -27,8 +27,8 @@ func _ready() -> void:
 	add_child(box)
 
 	var title := Label.new()
-	title.text = "DIJAH\nDASH"
-	title.add_theme_font_size_override("font_size", 96)
+	title.text = "DIJAH'S\nDELIGHTS"
+	title.add_theme_font_size_override("font_size", 88)
 	title.add_theme_color_override("font_color", Color.html("#ffffff"))
 	title.add_theme_color_override("font_outline_color", Color.html("#5b2333"))
 	title.add_theme_constant_override("outline_size", 12)
@@ -36,7 +36,7 @@ func _ready() -> void:
 	box.add_child(title)
 
 	var sub := Label.new()
-	sub.text = "A candy runner for Dijah"
+	sub.text = "CANDY RUN  •  A candy runner for Dijah"
 	sub.add_theme_font_size_override("font_size", 30)
 	sub.add_theme_color_override("font_color", Color.html("#ffd23f"))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

@@ -1,8 +1,10 @@
 class_name BoardData
 extends Node
-## Dijah Dash — all 20 boards as data.
+## Dijah's Delights Candy Run — all 21 boards as data.
 ## Each board: look (palette), objective, obstacle type, speed, length, music.
-## Palettes are cherry-red friendly, never blue.
+## Palettes are cherry-red friendly, never blue — EXCEPT board 21
+## "Blueberry Bash", deliberately blueberry-purple because the joke is
+## that Dijah hates blueberries (ordered by Damon).
 
 # Objective types:
 #   collect      - collect N sugar stars (immediate win)
@@ -26,7 +28,7 @@ extends Node
 const BOARDS: Array = [
 	{
 		"name": "Candyland", "look": "pink syrup",
-		"palette": {"tile": "#e8c88f", "tile_dark": "#d9b06a", "side": "#4a2c1a", "rail_left": "#ff5c8a", "rail_right": "#5fe3c0", "rim": "#ff5c8a", "syrup": "#7a1030", "sea": "#ff4d94", "sky": "#ffd6e8", "fog": "#ffc2da", "accent": "#ffd23f", "scenery": "#ff9ec7"},
+		"palette": {"tile": "#c98a4e", "tile_dark": "#a8703a", "side": "#2e1a0c", "rail_left": "#ff5c8a", "rail_right": "#5fe3c0", "rim": "#ff5c8a", "syrup": "#7a1030", "sea": "#ff2e7e", "sky": "#ffb3cf", "fog": "#ff8fb8", "accent": "#ffd23f", "scenery": "#ff9ec7"},
 		"objective": {"type": "collect", "target": 10, "label": "Collect 10 sugar stars"},
 		"obstacle": "hole", "speed": 9.0, "length": 300,
 		"music": {"tempo": 118, "root": 60, "scale": [0, 2, 4, 7, 9], "wave": 0},
@@ -163,6 +165,13 @@ const BOARDS: Array = [
 		"objective": {"type": "finale", "target": 3000, "target2": 750, "label": "Score 3,000 AND run 750m in one run"},
 		"obstacle": "mixed", "speed": 11.0, "length": 750,
 		"music": {"tempo": 144, "root": 60, "scale": [0, 2, 4, 7, 9], "wave": 1},
+	},
+	{
+		"name": "Blueberry Bash", "look": "blueberry patch",
+		"palette": {"tile": "#5e3a8a", "tile_dark": "#4a2a6e", "side": "#1e0a33", "rail_left": "#7b5cd6", "rail_right": "#ff5c8a", "rim": "#7b5cd6", "syrup": "#1a0830", "sea": "#5a2ea8", "sky": "#b39ae0", "fog": "#8a68c8", "accent": "#7b5cd6", "scenery": "#6e4ab8"},
+		"objective": {"type": "distance", "target": 400, "no_fall": true, "label": "Run 400m without falling"},
+		"obstacle": "blueberry_roller", "speed": 10.0, "length": 400,
+		"music": {"tempo": 130, "root": 57, "scale": [0, 3, 5, 7, 10], "wave": 1},
 	},
 ]
 

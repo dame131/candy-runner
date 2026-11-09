@@ -1,6 +1,6 @@
 class_name SaveManager
 extends Node
-## Dijah Dash — local save: unlocked boards, best scores, sugar-star
+## Dijah's Delights Candy Run — local save: unlocked boards, best scores, sugar-star
 ## currency, owned/equipped outfits, mute setting. Stored as JSON in user://.
 
 const SAVE_PATH := "user://dijah_dash_save.json"

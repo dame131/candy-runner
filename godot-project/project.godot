@@ -1,11 +1,11 @@
 ; Engine configuration file.
-; Dijah Dash — 3D candy runner for Android (Godot 4.2+)
+; Dijah's Delights Candy Run — 3D candy runner for Android (Godot 4.2+)
 
 config_version=5
 
 [application]
 
-config/name="Dijah Dash"
+config/name="Dijah's Delights Candy Run"
 run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.2", "Mobile")
 config/icon="res://icon.svg"

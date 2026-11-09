@@ -1,5 +1,5 @@
 extends Control
-## Dijah Dash — roadmap map: full-screen winding path with all 20 boards
+## Dijah's Delights Candy Run — roadmap map: full-screen winding path with all 20 boards
 ## in their own colors. Boards stay locked until the previous one is beaten.
 
 var _stars_label: Label

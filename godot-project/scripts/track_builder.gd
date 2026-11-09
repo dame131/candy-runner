@@ -1,15 +1,29 @@
 class_name TrackBuilder
 extends RefCounted
-## Builds endless 12m track segments for Dijah Dash:
-## waffle tiles (tan grid, dark chocolate base), pink/mint rails,
-## holes with colored rims, organized star patterns, power-ups,
-## scenery (lollipops, cones, donuts, candy-cane arches, mountains),
-## clouds and the syrup sea below. All procedural, no assets.
+## Builds endless 12m track segments for Dijah's Delights Candy Run.
+## All visuals are real Blender models (.glb): waffle tiles with sprinkles,
+## pink/mint rails, rimmed holes, swirl lollipops, donuts, candy-cane
+## arches, gummy bears, ice-cream cones, cupcakes, candy mountains.
+## Per-board palettes are applied by imported material name
+## ("tile", "tile_dark", "side", "rim", "syrup", "rail", "joint").
 
 const SEG_LEN: float = 12.0
 const LANE_X: float = 2.2
 const ROWS: int = 5
 const ROW_LEN: float = 2.4
+
+const TILE_A: PackedScene = preload("res://models/tile_a.glb")
+const TILE_B: PackedScene = preload("res://models/tile_b.glb")
+const HOLE_TILE: PackedScene = preload("res://models/hole_tile.glb")
+const RAIL_LEFT: PackedScene = preload("res://models/rail_left.glb")
+const RAIL_RIGHT: PackedScene = preload("res://models/rail_right.glb")
+const LOLLIPOP: PackedScene = preload("res://models/lollipop.glb")
+const ICE_CREAM: PackedScene = preload("res://models/ice_cream_cone.glb")
+const DONUT: PackedScene = preload("res://models/donut.glb")
+const CANDY_ARCH: PackedScene = preload("res://models/candy_cane_arch.glb")
+const GUMMY_BEAR: PackedScene = preload("res://models/gummy_bear.glb")
+const CUPCAKE: PackedScene = preload("res://models/cupcake.glb")
+const MOUNTAIN: PackedScene = preload("res://models/candy_mountain.glb")
 
 var board: Dictionary
 var rng: RandomNumberGenerator
@@ -23,7 +37,7 @@ func _init(p_board: Dictionary, p_rng: RandomNumberGenerator) -> void:
 	rng = p_rng
 
 
-func _mat(color_hex: String, rough: float = 0.4, glow: bool = false) -> StandardMaterial3D:
+func _mat(color_hex: String, rough: float = 0.2, glow: bool = false) -> StandardMaterial3D:
 	var key: String = color_hex + str(rough) + str(glow)
 	if _mats.has(key):
 		return _mats[key]
@@ -33,7 +47,7 @@ func _mat(color_hex: String, rough: float = 0.4, glow: bool = false) -> Standard
 	if glow:
 		m.emission_enabled = true
 		m.emission = Color.html(color_hex)
-		m.emission_energy_multiplier = 0.4
+		m.emission_energy_multiplier = 0.9
 	_mats[key] = m
 	return m
 
@@ -74,6 +88,29 @@ func _cyl(parent: Node3D, pos: Vector3, r_top: float, r_bot: float, h: float, ma
 	return mi
 
 
+## Swap every surface whose imported material name is a key of `overrides`
+## with the matching palette material. Works on any .glb instance.
+func _apply_overrides(node: Node, overrides: Dictionary) -> void:
+	if node is MeshInstance3D:
+		var mi := node as MeshInstance3D
+		var mesh: Mesh = mi.mesh
+		if mesh:
+			for i in range(mesh.get_surface_count()):
+				var m: Material = mesh.surface_get_material(i)
+				if m and overrides.has(m.resource_name):
+					mi.set_surface_override_material(i, overrides[m.resource_name])
+	for c in node.get_children():
+		_apply_overrides(c, overrides)
+
+
+## Hide one named mesh inside a .glb instance (e.g. the syrup plane of a
+## sliding hole tile, where the segment provides its own syrup).
+func _hide_named(node: Node, target: String) -> void:
+	var found: Node = node.find_child(target)
+	if found:
+		found.visible = false
+
+
 func _lane_x(lane: int) -> float:
 	return float(lane) * LANE_X
 
@@ -91,24 +128,28 @@ func build_segment(seg_index: int, z_start: float, is_finish: bool, finish_z: fl
 	var stars: Array = []
 	var powerups: Array = []
 	var pal: Dictionary = board.get("palette", {})
-	var tile_mat: StandardMaterial3D = _mat(pal.get("tile", "#e8c88f"), 0.5)
-	var tile_dark_mat: StandardMaterial3D = _mat(pal.get("tile_dark", "#d9b06a"), 0.5)
-	var side_mat: StandardMaterial3D = _mat(pal.get("side", "#4a2c1a"), 0.6)
+	var tile_mat: StandardMaterial3D = _mat(pal.get("tile", "#e0aa6e"), 0.22)
+	var tile_dark_mat: StandardMaterial3D = _mat(pal.get("tile_dark", "#cf9557"), 0.22)
+	var side_mat: StandardMaterial3D = _mat(pal.get("side", "#3d2113"), 0.35)
 
 	# --- base slab (dark chocolate, shows through the tile gaps) ---
 	_box(seg, Vector3(0, -0.38, -SEG_LEN * 0.5), Vector3(7.0, 0.35, SEG_LEN + 0.1), side_mat)
 
-	# --- waffle tiles: 3 lanes x 5 rows ---
+	# --- waffle tiles: 3 lanes x 5 rows, Blender models, checkerboard ---
 	var tiles: Dictionary = {}
 	for lane_i in [-1, 0, 1]:
 		tiles[lane_i] = {}
 		for row in range(ROWS):
-			var t := _box(seg, Vector3(_lane_x(lane_i), -0.175, _row_z(row)), Vector3(2.14, 0.35, 2.34), tile_mat if (lane_i + row) % 2 == 0 else tile_dark_mat)
+			var even: bool = (lane_i + row) % 2 == 0
+			var t: Node3D = (TILE_A if even else TILE_B).instantiate()
+			t.position = Vector3(_lane_x(lane_i), 0, _row_z(row))
+			seg.add_child(t)
+			_apply_overrides(t, {"tile": tile_mat if even else tile_dark_mat, "side": side_mat})
 			tiles[lane_i][row] = t
 
 	# --- rails: pink left, mint right (per board palette) ---
-	_add_rail(seg, -3.55, pal.get("rail_left", "#ff5c8a"), "#ffffff")
-	_add_rail(seg, 3.55, pal.get("rail_right", "#5fe3c0"), pal.get("rail_left", "#ff5c8a"))
+	_add_rail(seg, -3.55, RAIL_LEFT, pal.get("rail_left", "#ff5c8a"), "#ffffff")
+	_add_rail(seg, 3.55, RAIL_RIGHT, pal.get("rail_right", "#5fe3c0"), pal.get("rail_left", "#ff5c8a"))
 
 	var hole_rows: Dictionary = {}  # lane -> Array of rows with holes
 
@@ -135,8 +176,11 @@ func build_segment(seg_index: int, z_start: float, is_finish: bool, finish_z: fl
 				_place_obstacle(seg, obstacles, tiles, hole_rows, "hole", rng.randi_range(-1, 1), h_row)
 
 	# --- star patterns (organized, a little challenging) ---
-	var star_chance: float = 0.75 if board.get("objective", {}).get("type", "") == "collect_all" else 0.55
-	if rng.randf() < star_chance and not is_finish:
+	# Balance: no stars on the first two segments (safe start, same as
+	# obstacles) and a lower spawn chance, so a "collect 10 stars" board
+	# takes a real run instead of ending in the first seconds.
+	var star_chance: float = 0.75 if board.get("objective", {}).get("type", "") == "collect_all" else 0.40
+	if seg_index >= 2 and rng.randf() < star_chance and not is_finish:
 		_place_star_pattern(seg, stars, hole_rows)
 
 	# --- power-up every 5th segment, Sour Star every 6th ---
@@ -146,12 +190,20 @@ func build_segment(seg_index: int, z_start: float, is_finish: bool, finish_z: fl
 	if seg_index >= 4 and seg_index % 6 == 5:
 		_add_powerup(seg, powerups, "sour", rng.randi_range(-1, 1), rng.randi_range(0, ROWS - 1))
 
-	# --- scenery ---
-	if rng.randf() < 0.45:
+	# --- scenery: line BOTH track edges like the mockups — at least one
+	# prop per side per segment, edge gummy bears, arch every 3rd segment.
+	_add_scenery(seg)
+	_add_scenery(seg)
+	if rng.randf() < 0.6:
 		_add_scenery(seg)
+	_add_edge_bears(seg)
+	if seg_index % 3 == 2:
+		_build_candy_arch(seg)
+	if rng.randf() < 0.85:
+		_add_sea_swirl(seg)
 	if rng.randf() < 0.35:
 		_add_cloud(seg)
-	if rng.randf() < 0.25:
+	if rng.randf() < 0.3:
 		_add_mountain(seg)
 
 	# --- finish arch ---
@@ -161,22 +213,11 @@ func build_segment(seg_index: int, z_start: float, is_finish: bool, finish_z: fl
 	return {"node": seg, "obstacles": obstacles, "stars": stars, "powerups": powerups}
 
 
-func _add_rail(seg: Node3D, x: float, rail_hex: String, joint_hex: String) -> void:
-	var rail_mat: StandardMaterial3D = _mat(rail_hex, 0.25)
-	var rail := MeshInstance3D.new()
-	var c := CylinderMesh.new()
-	c.top_radius = 0.13
-	c.bottom_radius = 0.13
-	c.height = SEG_LEN
-	rail.mesh = c
-	rail.rotation.x = PI * 0.5
-	rail.position = Vector3(x, 0.28, -SEG_LEN * 0.5)
-	rail.material_override = rail_mat
+func _add_rail(seg: Node3D, x: float, scene: PackedScene, rail_hex: String, joint_hex: String) -> void:
+	var rail: Node3D = scene.instantiate()
+	rail.position = Vector3(x, 0, -SEG_LEN * 0.5)
 	seg.add_child(rail)
-	# round joints every 3m (4 per segment; the 5th is the next segment's first)
-	var joint_mat: StandardMaterial3D = _mat(joint_hex, 0.3)
-	for i in range(4):
-		_sphere(seg, Vector3(x, 0.28, -float(i) * 3.0 - 0.5), 0.2, joint_mat)
+	_apply_overrides(rail, {"rail": _mat(rail_hex, 0.15), "joint": _mat(joint_hex, 0.25)})
 
 
 func _place_obstacle(seg: Node3D, obstacles: Array, tiles: Dictionary, hole_rows: Dictionary, kind: String, lane: int, row: int) -> void:
@@ -215,33 +256,27 @@ func _add_obstacle(seg: Node3D, obstacles: Array, kind: String, lane: int, z: fl
 	obstacles.append(ob)
 
 
-func _make_hole(seg: Node3D, tiles: Dictionary, hole_rows: Dictionary, lane: int, row: int, depth: int) -> void:
+func _hole_overrides() -> Dictionary:
 	var pal: Dictionary = board.get("palette", {})
+	return {
+		"rim": _mat(pal.get("rim", "#ff5c8a"), 0.15, true),
+		"syrup": _mat(pal.get("syrup", "#7a1030"), 0.08),
+		"side": _mat(pal.get("side", "#3d2113"), 0.35),
+		"joint": _mat("#ffffff", 0.25),
+	}
+
+
+func _make_hole(seg: Node3D, tiles: Dictionary, hole_rows: Dictionary, lane: int, row: int, depth: int) -> void:
 	for d in range(depth):
 		var r: int = row + d
 		if r >= ROWS:
 			break
 		tiles[lane][r].visible = false
 		hole_rows[r] = true
-	# rim frame around the hole
-	var rim := Node3D.new()
-	rim.position = Vector3(_lane_x(lane), 0, _row_z(row) - float(depth - 1) * 1.2)
-	seg.add_child(rim)
-	var rim_mat: StandardMaterial3D = _mat(pal.get("rim", "#ff5c8a"), 0.3, true)
-	var w: float = 2.14
-	var l: float = 2.34 * float(depth)
-	_box(rim, Vector3(0, 0.06, -l * 0.5 - 0.09), Vector3(w + 0.36, 0.12, 0.18), rim_mat)
-	_box(rim, Vector3(0, 0.06, l * 0.5 + 0.09), Vector3(w + 0.36, 0.12, 0.18), rim_mat)
-	_box(rim, Vector3(-w * 0.5 - 0.09, 0.06, 0), Vector3(0.18, 0.12, l), rim_mat)
-	_box(rim, Vector3(w * 0.5 + 0.09, 0.06, 0), Vector3(0.18, 0.12, l), rim_mat)
-	var white := _mat("#ffffff", 0.3)
-	for cx in [-1, 1]:
-		for cz in [-1, 1]:
-			_sphere(rim, Vector3(cx * (w * 0.5 + 0.09), 0.10, cz * (l * 0.5 + 0.09)), 0.14, white)
-	# syrup below
-	_box(seg, Vector3(_lane_x(lane), -0.85, _row_z(row) - float(depth - 1) * 1.2), Vector3(2.1, 0.05, l), _mat(pal.get("syrup", "#7a1030"), 0.15))
-	_sphere(seg, Vector3(_lane_x(lane) + 0.4, -0.80, _row_z(row)), 0.10, _mat("#ffffff", 0.2))
-	_sphere(seg, Vector3(_lane_x(lane) - 0.5, -0.80, _row_z(row) - 0.6), 0.07, _mat("#ffffff", 0.2))
+		var ht: Node3D = HOLE_TILE.instantiate()
+		ht.position = Vector3(_lane_x(lane), 0, _row_z(r))
+		seg.add_child(ht)
+		_apply_overrides(ht, _hole_overrides())
 
 
 func _make_cloud_gap(seg: Node3D, tiles: Dictionary, hole_rows: Dictionary, row: int, rows: int) -> void:
@@ -255,26 +290,22 @@ func _make_cloud_gap(seg: Node3D, tiles: Dictionary, hole_rows: Dictionary, row:
 		hole_rows[r] = true
 	var z: float = _row_z(row) - float(rows - 1) * 1.2
 	var l: float = 2.34 * float(rows)
-	var rim_mat: StandardMaterial3D = _mat(pal.get("rim", "#ff9ec7"), 0.3, true)
+	var rim_mat: StandardMaterial3D = _mat(pal.get("rim", "#ff9ec7"), 0.15, true)
 	_box(seg, Vector3(0, 0.06, z - l * 0.5 - 0.09), Vector3(6.9, 0.12, 0.18), rim_mat)
 	_box(seg, Vector3(0, 0.06, z + l * 0.5 + 0.09), Vector3(6.9, 0.12, 0.18), rim_mat)
-	_box(seg, Vector3(0, -0.85, z), Vector3(6.6, 0.05, l), _mat(pal.get("syrup", "#e8d5b5"), 0.15))
+	_box(seg, Vector3(0, -0.85, z), Vector3(6.6, 0.05, l), _mat(pal.get("syrup", "#e8d5b5"), 0.08))
 
 
 func _make_sliding_hole(seg: Node3D, obstacles: Array, tiles: Dictionary, hole_rows: Dictionary, row: int) -> void:
-	var pal: Dictionary = board.get("palette", {})
 	# syrup under the whole row (the hole can slide to any lane)
-	_box(seg, Vector3(0, -0.85, _row_z(row)), Vector3(6.6, 0.05, 2.3), _mat(pal.get("syrup", "#7a1030"), 0.15))
-	# rim that slides with the hole
-	var rim := Node3D.new()
+	_box(seg, Vector3(0, -0.85, _row_z(row)), Vector3(6.6, 0.05, 2.3), _mat(board.get("palette", {}).get("syrup", "#7a1030"), 0.08))
+	# rim that slides with the hole: Blender hole tile, syrup hidden
+	# (the segment's full-row syrup box provides it instead).
+	var rim: Node3D = HOLE_TILE.instantiate()
 	rim.position = Vector3(0, 0, _row_z(row))
 	seg.add_child(rim)
-	var rim_mat: StandardMaterial3D = _mat(pal.get("rim", "#ff2fb3"), 0.3, true)
-	var w: float = 2.14
-	_box(rim, Vector3(0, 0.06, -1.26), Vector3(w + 0.36, 0.12, 0.18), rim_mat)
-	_box(rim, Vector3(0, 0.06, 1.26), Vector3(w + 0.36, 0.12, 0.18), rim_mat)
-	_box(rim, Vector3(-w * 0.5 - 0.09, 0.06, 0), Vector3(0.18, 0.12, 2.34), rim_mat)
-	_box(rim, Vector3(w * 0.5 + 0.09, 0.06, 0), Vector3(0.18, 0.12, 2.34), rim_mat)
+	_apply_overrides(rim, _hole_overrides())
+	_hide_named(rim, "Syrup")
 	# tile refs per lane for this row
 	var row_tiles: Dictionary = {}
 	for lane_i in [-1, 0, 1]:
@@ -335,12 +366,13 @@ func _add_powerup(seg: Node3D, powerups: Array, kind: String, lane: int, row: in
 	powerups.append(p)
 
 
-# --- scenery ---
+# --- scenery (Blender models, big like the target image) ---
 
 func _add_scenery(seg: Node3D) -> void:
 	var pick: int = rng.randi_range(0, 5)
 	var side: float = -1.0 if rng.randf() < 0.5 else 1.0
-	var x: float = side * rng.randf_range(5.5, 9.0)
+	# Closer to the track and bigger than before, like the mockups.
+	var x: float = side * rng.randf_range(4.0, 6.0)
 	var z: float = rng.randf_range(-11.0, -1.0)
 	match pick:
 		0:
@@ -357,66 +389,92 @@ func _add_scenery(seg: Node3D) -> void:
 			_build_cupcake(seg, x, z)
 
 
+func _add_edge_bears(seg: Node3D) -> void:
+	# Gummy bears standing ON the track edges, like the mockups — one per
+	# side most segments, so the edges are never bare.
+	for side in [-1.0, 1.0]:
+		if rng.randf() < 0.7:
+			_build_edge_bear(seg, side * 2.9, rng.randf_range(-11.0, -1.0))
+
+
 func _build_lollipop(seg: Node3D, x: float, z: float) -> void:
-	_cyl(seg, Vector3(x, 1.1, z), 0.09, 0.09, 2.2, _mat("#ffffff", 0.4))
+	var lol: Node3D = LOLLIPOP.instantiate()
+	# Base on the sea (y=-2.5) so it rises from the syrup like the mockups
+	# instead of looming over the camera at track level.
+	lol.position = Vector3(x, -2.5, z)
+	lol.scale = Vector3.ONE * rng.randf_range(2.2, 2.8)
+	lol.rotation.y = rng.randf_range(-0.4, 0.4)
+	seg.add_child(lol)
 	var cols: Array = ["#ff5c8a", "#5fe3c0", "#ff8a00"]
-	var c: String = cols[rng.randi_range(0, cols.size() - 1)]
-	_sphere(seg, Vector3(x, 2.5, z), 0.85, _mat(c, 0.25))
-	_sphere(seg, Vector3(x, 2.5, z - 0.7), 0.4, _mat("#ffffff", 0.25))
+	_apply_overrides(lol, {"LolliPink": _mat(cols[rng.randi_range(0, cols.size() - 1)], 0.15)})
 
 
 func _build_ice_cream(seg: Node3D, x: float, z: float) -> void:
-	_cyl(seg, Vector3(x, 0.8, z), 0.02, 0.7, 1.6, _mat("#d9a05e", 0.5))
-	_sphere(seg, Vector3(x, 1.9, z), 0.75, _mat("#ff9ec7", 0.3))
-	_sphere(seg, Vector3(x, 2.5, z), 0.55, _mat("#ffffff", 0.3))
-	_sphere(seg, Vector3(x, 3.0, z), 0.18, _mat("#ff2e4d", 0.2))
+	var ic: Node3D = ICE_CREAM.instantiate()
+	ic.position = Vector3(x, -2.5, z)
+	ic.scale = Vector3.ONE * rng.randf_range(2.2, 2.8)
+	ic.rotation.y = rng.randf_range(0, TAU)
+	seg.add_child(ic)
 
 
 func _build_donut(seg: Node3D, x: float, z: float) -> void:
-	var d := MeshInstance3D.new()
-	var tm := TorusMesh.new()
-	tm.inner_radius = 0.5
-	tm.outer_radius = 1.0
-	d.mesh = tm
-	d.position = Vector3(x, 2.2, z)
-	d.rotation = Vector3(0.6, 0.3, 0.4)
-	d.material_override = _mat("#ff5c8a", 0.3)
+	var d: Node3D = DONUT.instantiate()
+	# further out and stood up facing the camera, like the target image
+	var far_x: float = (7.5 if x > 0 else -7.5) + (1.0 if x > 0 else -1.0) * rng.randf_range(0.0, 1.5)
+	d.position = Vector3(far_x, -0.9, z)
+	d.scale = Vector3.ONE * rng.randf_range(2.0, 2.6)
+	d.rotation = Vector3(1.15, rng.randf_range(0, TAU), 0.2)
 	seg.add_child(d)
-	for i in range(6):
-		_box(seg, Vector3(x + rng.randf_range(-0.7, 0.7), 2.6 + rng.randf_range(-0.3, 0.3), z + rng.randf_range(-0.7, 0.7)), Vector3(0.18, 0.05, 0.05), _mat(["#ffd23f", "#5fe3c0", "#ffffff"][i % 3], 0.3))
 
 
 func _build_candy_arch(seg: Node3D) -> void:
-	_cyl(seg, Vector3(-3.4, 1.3, -6.0), 0.16, 0.16, 2.6, _mat("#ff5c8a", 0.3))
-	_cyl(seg, Vector3(3.4, 1.3, -6.0), 0.16, 0.16, 2.6, _mat("#ff5c8a", 0.3))
-	var top := MeshInstance3D.new()
-	var c := CylinderMesh.new()
-	c.top_radius = 0.16
-	c.bottom_radius = 0.16
-	c.height = 6.8
-	top.mesh = c
-	top.rotation.z = PI * 0.5
-	top.position = Vector3(0, 2.6, -6.0)
-	top.material_override = _mat("#ffffff", 0.3)
-	seg.add_child(top)
+	var a: Node3D = CANDY_ARCH.instantiate()
+	a.position = Vector3(0, 0, -6.0)
+	seg.add_child(a)
 
 
 func _build_edge_bear(seg: Node3D, x: float, z: float) -> void:
+	var b: Node3D = GUMMY_BEAR.instantiate()
+	# on the track edge, just inside the rail, like the target image
+	var edge_x: float = (2.9 if x > 0 else -2.9)
+	b.position = Vector3(edge_x, 0, z)
+	b.scale = Vector3.ONE * rng.randf_range(0.8, 1.0)
+	b.rotation.y = rng.randf_range(0, TAU)
+	seg.add_child(b)
 	var cols: Array = ["#7ed957", "#ff8a00", "#ffd23f", "#ff5c8a"]
-	var c: String = cols[rng.randi_range(0, cols.size() - 1)]
-	_sphere(seg, Vector3(x, 0.5, z), 0.5, _mat(c, 0.25))
-	_sphere(seg, Vector3(x, 1.1, z), 0.34, _mat(c, 0.25))
+	_apply_overrides(b, {"Gummy": _mat(cols[rng.randi_range(0, cols.size() - 1)], 0.12)})
 
 
 func _build_cupcake(seg: Node3D, x: float, z: float) -> void:
-	_cyl(seg, Vector3(x, 0.5, z), 0.55, 0.45, 1.0, _mat("#8ecae6", 0.4))
-	_sphere(seg, Vector3(x, 1.2, z), 0.6, _mat("#ff9ec7", 0.3))
-	_sphere(seg, Vector3(x, 1.7, z), 0.15, _mat("#ff2e4d", 0.2))
+	var c: Node3D = CUPCAKE.instantiate()
+	c.position = Vector3(x, -2.5, z)
+	c.scale = Vector3.ONE * rng.randf_range(2.2, 2.8)
+	c.rotation.y = rng.randf_range(0, TAU)
+	seg.add_child(c)
+
+
+func _add_sea_swirl(seg: Node3D) -> void:
+	# white foam streaks on the syrup sea beside the track
+	var white := _mat("#ffffff", 0.1)
+	for i in range(rng.randi_range(3, 5)):
+		var ring := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = rng.randf_range(1.0, 1.8)
+		tm.outer_radius = tm.inner_radius + 0.3
+		tm.rings = 24
+		tm.ring_segments = 8
+		ring.mesh = tm
+		ring.rotation.x = PI * 0.5
+		ring.scale = Vector3(1.6, 1.0, 1.0)
+		var side: float = -1.0 if rng.randf() < 0.5 else 1.0
+		ring.position = Vector3(side * rng.randf_range(6.0, 14.0), -2.3, rng.randf_range(-11.0, -1.0))
+		ring.material_override = white
+		seg.add_child(ring)
 
 
 func _add_cloud(seg: Node3D) -> void:
 	var x: float = rng.randf_range(-12.0, 12.0)
-	var y: float = rng.randf_range(7.0, 12.0)
+	var y: float = rng.randf_range(6.0, 10.0)
 	var z: float = rng.randf_range(-11.0, -1.0)
 	var white := _mat("#ffffff", 0.6)
 	var c := _sphere(seg, Vector3(x, y, z), 1.4, white)
@@ -427,12 +485,15 @@ func _add_cloud(seg: Node3D) -> void:
 
 func _add_mountain(seg: Node3D) -> void:
 	var side: float = -1.0 if rng.randf() < 0.5 else 1.0
-	var x: float = side * rng.randf_range(14.0, 26.0)
+	# Far background only — close mountains filled the whole frame.
+	var x: float = side * rng.randf_range(18.0, 30.0)
 	var z: float = rng.randf_range(-11.0, -1.0)
+	var m: Node3D = MOUNTAIN.instantiate()
+	m.position = Vector3(x, -0.9, z)
+	m.scale = Vector3.ONE * rng.randf_range(2.2, 3.0)
+	seg.add_child(m)
 	var cols: Array = ["#c9a0dc", "#ff9ec7", "#a8e063", "#ffb347"]
-	var c: String = cols[rng.randi_range(0, cols.size() - 1)]
-	_cyl(seg, Vector3(x, 2.5, z), 0.0, 3.2, 5.0, _mat(c, 0.6))
-	_sphere(seg, Vector3(x, 5.0, z), 0.8, _mat("#ffffff", 0.6))
+	_apply_overrides(m, {"Mountain": _mat(cols[rng.randi_range(0, cols.size() - 1)], 0.5)})
 
 
 func _add_finish(seg: Node3D, local_z: float) -> void:

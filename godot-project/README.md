@@ -1,4 +1,4 @@
-# Dijah Dash
+# Dijah's Delights Candy Run
 
 A finished 3D candy runner game for Dijah, built with **Godot 4.2+**.
 Dijah runs away from the camera down a floating candy track over a syrup
@@ -25,7 +25,7 @@ sea — dodge the holes, grab the sugar stars, beat all 20 boards.
 2. On the phone, open the APK in Chrome/Downloads and tap **Install**.
    If the phone asks, allow **"Install unknown apps"** for Chrome — this
    is a normal sideload, the APK is built from this source.
-3. Open **Dijah Dash** and play. Progress, best scores, stars, and outfits
+3. Open **Dijah's Delights Candy Run** and play. Progress, best scores, stars, and outfits
    are saved on the phone.
 
 ## Build it yourself (Godot 4.2)

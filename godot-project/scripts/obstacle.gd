@@ -80,6 +80,8 @@ func setup(p_kind: String, board: Dictionary, p_lane: int, data: Dictionary = {}
 			_build_gate(board)
 		"honeycomb_wall":
 			_build_honeycomb_wall(board)
+		"blueberry_roller":
+			_build_blueberry_roller()
 
 
 func current_lane_x() -> float:
@@ -137,17 +139,28 @@ func _cyl(parent: Node3D, pos: Vector3, r_top: float, r_bot: float, h: float, ma
 
 # --- Visual builders ---
 
+const GUMMY_BEAR: PackedScene = preload("res://models/gummy_bear.glb")
+
+
+func _apply_overrides(node: Node, overrides: Dictionary) -> void:
+	if node is MeshInstance3D:
+		var mi := node as MeshInstance3D
+		var mesh: Mesh = mi.mesh
+		if mesh:
+			for i in range(mesh.get_surface_count()):
+				var m: Material = mesh.surface_get_material(i)
+				if m and overrides.has(m.resource_name):
+					mi.set_surface_override_material(i, overrides[m.resource_name])
+	for c in node.get_children():
+		_apply_overrides(c, overrides)
+
+
 func _build_gummy_bear(board: Dictionary) -> void:
 	var colors: Array = [Color.html("#7ed957"), Color.html("#ff8a00"), Color.html("#ffd23f"), Color.html("#ff5c8a")]
 	var c: Color = colors[randi() % colors.size()]
-	var mat := _mat(c, 0.25)
-	_sphere(self, Vector3(0, 0.55, 0), 0.5, mat)
-	_sphere(self, Vector3(0, 1.15, 0), 0.34, mat)
-	_sphere(self, Vector3(-0.24, 1.42, 0), 0.13, mat)
-	_sphere(self, Vector3(0.24, 1.42, 0), 0.13, mat)
-	_sphere(self, Vector3(0, 1.10, 0.30), 0.14, _mat(Color.html("#ffffff")))
-	# candy belly shine (front, facing the player)
-	_sphere(self, Vector3(0, 0.55, 0.42), 0.28, _mat(Color(1, 1, 1, 0.35)))
+	var bear: Node3D = GUMMY_BEAR.instantiate()
+	add_child(bear)
+	_apply_overrides(bear, {"Gummy": _mat(c, 0.12)})
 
 
 func _build_rolling_ball(body_c: Color, top_c: Color, r: float) -> void:
@@ -311,6 +324,30 @@ func _build_gate(board: Dictionary) -> void:
 		_box(_gate_bar, Vector3(-2.6 + float(i) * 1.3, 0, 0), Vector3(0.55, 0.36, 0.31), _mat(Color.html("#ff2e4d")))
 
 
+func _build_blueberry_roller() -> void:
+	# Giant glossy blueberry rolling down the track at Dijah.
+	# Deep blueberry purple (not bright blue) with a star-shaped crown
+	# calyx on top, like a real blueberry.
+	_ball = _sphere(self, Vector3(0, 0.75, 0), 0.75, _mat(Color.html("#3a1a6e"), 0.12))
+	# lighter purple highlight bump so it reads round and glossy
+	# (child of the ball, so it rolls with the berry)
+	_sphere(_ball, Vector3(-0.25, 0.3, 0.45), 0.22, _mat(Color.html("#7b5cd6"), 0.15))
+	# star-shaped crown: 5 small flattened petals radiating on top
+	var crown_mat: Material = _mat(Color.html("#1a0830"), 0.3)
+	for i in range(5):
+		var ang: float = TAU * float(i) / 5.0
+		var petal := MeshInstance3D.new()
+		var b := BoxMesh.new()
+		b.size = Vector3(0.12, 0.05, 0.3)
+		petal.mesh = b
+		petal.position = Vector3(cos(ang) * 0.2, 0.73, sin(ang) * 0.2)
+		petal.rotation.y = -ang
+		petal.material_override = crown_mat
+		_ball.add_child(petal)
+	# center dimple
+	_sphere(_ball, Vector3(0, 0.72, 0), 0.09, crown_mat)
+
+
 func _build_honeycomb_wall(board: Dictionary) -> void:
 	var gold := _mat(Color.html("#ffb300"), 0.35)
 	var dark := _mat(Color.html("#8a5a00"), 0.4)
@@ -335,7 +372,7 @@ func update_obstacle(delta: float, player_z: float) -> void:
 	match kind:
 		"sliding_hole":
 			_update_sliding_hole(delta)
-		"rolling_ball", "rolling_pit":
+		"rolling_ball", "rolling_pit", "blueberry_roller":
 			position.z += delta * 2.0
 			if _ball != null:
 				_ball.rotation.x -= delta * 3.0
@@ -432,6 +469,9 @@ func check_player(player_pos: Vector3, player_y: float) -> String:
 				return "hit"
 		"rolling_pit":
 			if absf(dz) < 0.85 and absf(px - float(lane) * 2.2) < 0.85 and player_y < 0.7:
+				return "hit"
+		"blueberry_roller":
+			if absf(dz) < 0.9 and absf(px - float(lane) * 2.2) < 0.9 and player_y < 0.9:
 				return "hit"
 		"pinwheel":
 			if absf(dz) < 0.9 and absf(px - float(lane) * 2.2) < 1.0 and player_y < 1.35:

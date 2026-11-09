@@ -1,5 +1,5 @@
 extends Control
-## Dijah Dash — outfit shop: spend sugar stars on Dijah's looks.
+## Dijah's Delights Candy Run — outfit shop: spend sugar stars on Dijah's looks.
 
 var _balance_label: Label
 var _rows: VBoxContainer

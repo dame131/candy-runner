@@ -1,6 +1,6 @@
 class_name MusicManager
 extends Node
-## Dijah Dash — procedural music: a fresh chiptune loop is generated per
+## Dijah's Delights Candy Run — procedural music: a fresh chiptune loop is generated per
 ## board (tempo, root note, scale, waveform) as a looping AudioStreamWAV.
 ## SFX are tiny generated blips. Mute state lives in Save.
 

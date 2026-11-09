@@ -1,6 +1,6 @@
 class_name Hud
 extends CanvasLayer
-## Dijah Dash HUD: score/stars panels (matching the video's plum + brown
+## Dijah's Delights Candy Run HUD: score/stars panels (matching the video's plum + brown
 ## panels), hearts, objective line, center warnings, hint bar, mute button,
 ## speed-lines overlay, and game-over / win / fail panels.
 
@@ -15,6 +15,7 @@ var _rush_label: Label
 var _stars_label: Label
 var _streak_label: Label
 var _hearts_label: Label
+var _board_label: Label
 var _objective_label: Label
 var _message_label: Label
 var _hint_bar: PanelContainer
@@ -106,23 +107,35 @@ void fragment() {
 	_streak_label = _make_label("SWEET STREAK x0", 20, Color.html("#ffb3d9"))
 	stars_box.add_child(_streak_label)
 
+	# --- board banner (top center, like the mockups) ---
+	var board_panel := _make_panel(Color.html("#4a1030"), Color.html("#ff5c8a"))
+	board_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	board_panel.offset_left = -230
+	board_panel.offset_right = 230
+	board_panel.offset_top = 146
+	board_panel.offset_bottom = 186
+	root.add_child(board_panel)
+	_board_label = _make_label("BOARD 1 • CANDYLAND", 24, Color.html("#ffffff"), true)
+	_board_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	board_panel.add_child(_board_label)
+
 	# --- hearts (top center) ---
 	_hearts_label = _make_label("♥♥♥", 36, Color.html("#ff2e4d"), true)
 	_hearts_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_hearts_label.offset_left = -90
 	_hearts_label.offset_right = 90
-	_hearts_label.offset_top = 146
-	_hearts_label.offset_bottom = 190
+	_hearts_label.offset_top = 192
+	_hearts_label.offset_bottom = 232
 	_hearts_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(_hearts_label)
 
 	# --- objective line ---
-	_objective_label = _make_label("", 20, Color.html("#ffffff"))
+	_objective_label = _make_label("", 20, Color.html("#ffffff"), true)
 	_objective_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_objective_label.offset_left = 16
-	_objective_label.offset_top = 196
+	_objective_label.offset_top = 238
 	_objective_label.offset_right = 700
-	_objective_label.offset_bottom = 226
+	_objective_label.offset_bottom = 268
 	root.add_child(_objective_label)
 
 	# --- center message (big yellow warnings) ---
@@ -328,6 +341,10 @@ func set_speed_lines(active: bool) -> void:
 
 func set_mute_icon(sound_on: bool) -> void:
 	_mute_button.text = "SOUND ON" if sound_on else "MUTED"
+
+
+func set_board(text: String) -> void:
+	_board_label.text = text
 
 
 func show_game_over(score: int, distance: int, stars: int, best: int, is_new_best: bool) -> void:

@@ -1,6 +1,6 @@
 class_name VoiceLines
 extends Node3D
-## Dijah Dash — Dijah's spoken one-liners (sarcastic nursing humor; LPN).
+## Dijah's Delights Candy Run — Dijah's spoken one-liners (sarcastic nursing humor; LPN).
 ## Plays the voice clip and shows the line as a speech bubble above her head.
 ## Silent when the game is muted (Save.muted). One line at a time: a new
 ## line replaces the one currently playing.
@@ -64,6 +64,25 @@ const GENERAL_CLIPS: Dictionary = {
 	"med_cart": preload("res://audio/voices/med_cart.wav"),
 }
 
+## Blueberry pool: 5 jokes that play ONLY on board 21 "Blueberry Bash"
+## (Dijah hates blueberries). Same cooldown/priority rules as the general
+## pool. Never plays on any other board.
+const BLUEBERRY_LINES: Dictionary = {
+	"blueberry_hate": "Blueberries? In MY candy run? Absolutely not.",
+	"blueberry_chart": "I hate blueberries. Chart it.",
+	"blueberry_tried": "That blueberry tried me. It lost.",
+	"blueberry_grapes": "Blueberries are just sad little grapes.",
+	"blueberry_writeup": "Touch me with a blueberry and I'm writing you up.",
+}
+
+const BLUEBERRY_CLIPS: Dictionary = {
+	"blueberry_hate": preload("res://audio/voices/blueberry_hate.wav"),
+	"blueberry_chart": preload("res://audio/voices/blueberry_chart.wav"),
+	"blueberry_tried": preload("res://audio/voices/blueberry_tried.wav"),
+	"blueberry_grapes": preload("res://audio/voices/blueberry_grapes.wav"),
+	"blueberry_writeup": preload("res://audio/voices/blueberry_writeup.wav"),
+}
+
 var _player: AudioStreamPlayer
 var _bubble: Label3D
 var _bubble_timer: float = 0.0
@@ -71,6 +90,7 @@ var _time_alive: float = 0.0
 var _last_line_time: float = -100.0
 var _playing_event: bool = false
 var _last_general: String = ""
+var _last_blueberry: String = ""
 
 
 func _ready() -> void:
@@ -81,8 +101,8 @@ func _ready() -> void:
 	_bubble.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_bubble.no_depth_test = true
 	_bubble.font_size = 48
-	_bubble.pixel_size = 0.008
-	_bubble.width = 520.0
+	_bubble.pixel_size = 0.0045
+	_bubble.width = 320.0
 	_bubble.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_bubble.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_bubble.outline_size = 8
@@ -114,8 +134,22 @@ func play_general() -> void:
 	_play(key, false)
 
 
+## Blueberry line: random pool line for regular star pickups on board 21
+## ONLY. Same cooldown and event-priority rules as play_general().
+func play_blueberry() -> void:
+	if _time_alive - _last_line_time < GENERAL_COOLDOWN:
+		return
+	if _playing_event and _player.playing:
+		return
+	var keys: Array = BLUEBERRY_LINES.keys()
+	keys.erase(_last_blueberry)
+	var key: String = String(keys[randi() % keys.size()])
+	_last_blueberry = key
+	_play(key, false)
+
+
 func _play(event: String, is_event: bool) -> void:
-	var text: String = String(LINES.get(event, GENERAL_LINES.get(event, "")))
+	var text: String = String(LINES.get(event, GENERAL_LINES.get(event, BLUEBERRY_LINES.get(event, ""))))
 	_bubble.text = text
 	_bubble.visible = true
 	_bubble_timer = BUBBLE_TIME
@@ -123,7 +157,7 @@ func _play(event: String, is_event: bool) -> void:
 	_last_line_time = _time_alive
 	if Save.muted:
 		return
-	var clip: AudioStream = CLIPS.get(event, GENERAL_CLIPS.get(event, null))
+	var clip: AudioStream = CLIPS.get(event, GENERAL_CLIPS.get(event, BLUEBERRY_CLIPS.get(event, null)))
 	if clip == null:
 		return
 	_player.stop()

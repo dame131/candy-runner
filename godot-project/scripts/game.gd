@@ -1,5 +1,5 @@
 extends Node3D
-## Dijah Dash — game controller.
+## Dijah's Delights Candy Run — game controller.
 ## Auto-run forward, swipe to steer between 3 lanes, tap to jump.
 ## 3 hearts, Sugar Rush streaks, per-board objectives, power-ups, juice.
 
@@ -86,21 +86,34 @@ func _ready() -> void:
 	randomize()
 
 	# --- environment (per-board sky/fog) ---
+	# Fog is the washout killer: density 0.012 fogged ~45% of the track
+	# toward a pale color. Keep it low and tint the ambient with the
+	# board's own sky color so light stays colorful, not white.
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Boards.palette_color(board, "sky")
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(1, 0.95, 0.95)
-	env.ambient_light_energy = 0.7
+	env.ambient_light_color = Boards.palette_color(board, "sky").lerp(Color.WHITE, 0.45)
+	env.ambient_light_energy = 0.25
 	env.fog_enabled = true
 	env.fog_light_color = Boards.palette_color(board, "fog")
-	env.fog_density = 0.012
+	env.fog_density = 0.004
+	# Free graphics upgrades: bloom glow + filmic tonemapping, so the
+	# candy colors pop like the mockups instead of rendering flat.
+	# (ACES washed the warm tiles pale — filmic keeps them saturated.)
+	env.glow_enabled = true
+	env.glow_intensity = 0.7
+	env.glow_strength = 1.1
+	env.glow_bloom = 0.15
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_exposure = 1.0
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-50, -30, 0)
-	sun.light_energy = 1.1
+	sun.light_energy = 0.95
 	sun.shadow_enabled = true
 	add_child(sun)
 
@@ -111,8 +124,8 @@ func _ready() -> void:
 	_sea.mesh = sea_mesh
 	var sea_mat := StandardMaterial3D.new()
 	sea_mat.albedo_color = Boards.palette_color(board, "sea")
-	sea_mat.roughness = 0.15
-	sea_mat.metallic = 0.25
+	sea_mat.roughness = 0.08
+	sea_mat.metallic = 0.35
 	_sea.material_override = sea_mat
 	_sea.position = Vector3(0, -2.5, -40)
 	add_child(_sea)
@@ -127,10 +140,10 @@ func _ready() -> void:
 
 	# --- chase camera: behind the hero, hero small in frame ---
 	camera = Camera3D.new()
-	camera.fov = 60.0
+	camera.fov = 65.0
 	camera.near = 0.1
 	camera.far = 250.0
-	camera.position = Vector3(0, 4.6, 7.8)
+	camera.position = Vector3(0, 3.6, 7.4)
 	add_child(camera)
 
 	# --- track ---
@@ -141,6 +154,7 @@ func _ready() -> void:
 	# --- HUD ---
 	hud = Hud.new()
 	add_child(hud)
+	hud.set_board("BOARD %d • %s" % [board_index + 1, str(board.get("name", "")).to_upper()])
 	hud.retry_pressed.connect(_on_retry)
 	hud.menu_pressed.connect(_on_menu)
 	hud.next_pressed.connect(_on_next)
@@ -318,7 +332,7 @@ func _physics_process(delta: float) -> void:
 	# --- sugar rush: speed lines + wider FOV ---
 	var rush: bool = streak >= 5
 	hud.set_speed_lines(rush)
-	camera.fov = lerpf(camera.fov, 68.0 if rush else 60.0, delta * 3.0)
+	camera.fov = lerpf(camera.fov, 73.0 if rush else 65.0, delta * 3.0)
 
 	# --- objectives ---
 	var stats: Dictionary = _stats()
@@ -338,8 +352,8 @@ func _physics_process(delta: float) -> void:
 		return
 
 	# --- camera + sea follow ---
-	camera.position = Vector3(player.position.x * 0.35, 4.6, player.position.z + 7.8)
-	camera.look_at(Vector3(player.position.x * 0.5, 1.0, player.position.z - 8.0))
+	camera.position = Vector3(player.position.x * 0.35, 3.6, player.position.z + 7.4)
+	camera.look_at(Vector3(player.position.x * 0.5, 0.8, player.position.z - 8.0))
 	_sea.position = Vector3(0, -2.5, player.position.z - 40.0)
 
 	_update_hud()
@@ -545,6 +559,10 @@ func _collect_star(s: Star) -> void:
 		voice.play_line("big_star")
 	elif s.kind == "rainbow":
 		voice.play_line("rainbow_star")
+	elif board_index == 20:
+		# Board 21 "Blueberry Bash": blueberry jokes only, never the
+		# general pool. Event lines above still win as normal.
+		voice.play_blueberry()
 	else:
 		voice.play_general()
 	if streak == 5:
