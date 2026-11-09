@@ -622,7 +622,9 @@ func _spawn_confetti(pos: Vector3) -> void:
 	grad.add_point(0.5, Color.html("#5fe3c0"))
 	grad.add_point(0.75, Color.html("#b967ff"))
 	grad.set_color(1, Color.html("#ff8a00"))
-	pm.color_ramp = grad
+	var grad_tex := GradientTexture1D.new()
+	grad_tex.gradient = grad
+	pm.color_ramp = grad_tex
 	p.process_material = pm
 	var mesh := BoxMesh.new()
 	mesh.size = Vector3(0.14, 0.14, 0.02)
