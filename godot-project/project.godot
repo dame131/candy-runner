@@ -1,0 +1,35 @@
+; Engine configuration file.
+; Dijah Dash — 3D candy runner for Android (Godot 4.2+)
+
+config_version=5
+
+[application]
+
+config/name="Dijah Dash"
+run/main_scene="res://scenes/main_menu.tscn"
+config/features=PackedStringArray("4.2", "Mobile")
+config/icon="res://icon.svg"
+
+[autoload]
+
+Save="*res://scripts/save_manager.gd"
+Boards="*res://scripts/boards.gd"
+Music="*res://scripts/music_manager.gd"
+
+[display]
+
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(1, 0.85, 0.9, 1)

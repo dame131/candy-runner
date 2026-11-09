@@ -1,0 +1,8 @@
+# Godot
+.godot/
+*.apk
+*.aab
+debug.keystore
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#ff5c8a"/>
+  <circle cx="256" cy="250" r="130" fill="#ffd23f"/>
+  <polygon points="256,140 282,215 360,215 298,262 320,340 256,295 192,340 214,262 152,215 230,215" fill="#ff8a00"/>
+  <circle cx="256" cy="250" r="34" fill="#ff5c8a"/>
+  <rect x="120" y="380" width="272" height="42" rx="21" fill="#5b2333"/>
+  <text x="256" y="411" font-family="sans-serif" font-size="30" font-weight="bold" fill="#ffffff" text-anchor="middle">DIJAH DASH</text>
+</svg>
