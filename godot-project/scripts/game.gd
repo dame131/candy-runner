@@ -20,6 +20,7 @@ var player: Node3D
 var character: DijahCharacter
 var camera: Camera3D
 var hud: Hud
+var voice: VoiceLines
 var builder: TrackBuilder
 var rng := RandomNumberGenerator.new()
 
@@ -144,6 +145,10 @@ func _ready() -> void:
 	hud.menu_pressed.connect(_on_menu)
 	hud.next_pressed.connect(_on_next)
 	hud.mute_pressed.connect(_on_mute)
+
+	# --- Dijah's voice lines (speech bubble + spoken audio) ---
+	voice = VoiceLines.new()
+	player.add_child(voice)
 
 	Music.play_board(board_index)
 	hud.show_message("GO!", Color.html("#ffd23f"), 1.0)
@@ -365,6 +370,7 @@ func _track_hole(ob: Obstacle) -> void:
 			score += 50.0
 			hud.show_message("NEAR MISS +50", Color.html("#5fe3c0"), 1.0)
 			Music.play_sfx("streak")
+			voice.play_line("near_miss")
 
 
 func _score_mult() -> float:
@@ -495,6 +501,7 @@ func _on_fall() -> void:
 	falls += 1
 	streak = 0
 	Music.play_sfx("fall")
+	voice.play_line("fall")
 	state = State.FALLING
 	fall_timer = 0.7
 	vel_y = 0.0
@@ -517,6 +524,7 @@ func _on_hit(ob: Obstacle) -> void:
 	invincible = 1.5
 	stumble_timer = 0.8
 	Music.play_sfx("fall")
+	voice.play_line("fall")
 	if hearts <= 0:
 		_game_over()
 
@@ -531,6 +539,12 @@ func _collect_star(s: Star) -> void:
 	score += float(s.value) * 10.0 * _score_mult()
 	_spawn_burst(s.global_position, Color.html("#ffd23f") if s.kind == "normal" else Color.html("#ff8a00"), 24)
 	Music.play_sfx("bigpop" if s.kind != "normal" else "pop")
+	if s.kind == "big":
+		voice.play_line("big_star")
+	elif s.kind == "rainbow":
+		voice.play_line("rainbow_star")
+	else:
+		voice.play_general()
 	if streak == 5:
 		hud.show_message("SUGAR RUSH!", Color.html("#ff2fb3"), 1.4)
 		Music.play_sfx("streak")
@@ -543,6 +557,7 @@ func _collect_powerup(p: PowerUp) -> void:
 		"speed":
 			speed_timer = 5.0
 			hud.show_message("SPEED BOOST!", Color.html("#ffd23f"), 1.2)
+			voice.play_line("speed_boost")
 		"shield":
 			shield_on = true
 			hud.show_message("SHIELD!", Color.html("#00e5ff"), 1.2)
@@ -557,6 +572,7 @@ func _collect_powerup(p: PowerUp) -> void:
 			streak = 0
 			hud.show_message("SOUR! SLOW DOWN!", Color.html("#7ed957"), 1.4)
 			Music.play_sfx("sour")
+			voice.play_line("sour_star")
 			p.queue_free()
 			return
 	Music.play_sfx("streak")
@@ -652,6 +668,9 @@ func _win() -> void:
 	Music.play_sfx("win")
 	if is_best:
 		_spawn_confetti(player.global_position + Vector3(0, 2, -3))
+		voice.play_line("new_best")
+	else:
+		voice.play_line("win")
 	var has_next: bool = board_index + 1 < Boards.board_count()
 	hud.show_win(int(score), int(distance), stars_collected, Save.best_score(board_index), is_best, has_next)
 
@@ -662,6 +681,8 @@ func _game_over() -> void:
 	state = State.OVER
 	var is_best: bool = Save.record_run(board_index, int(score), stars_collected, false)
 	Music.play_sfx("fall")
+	if is_best:
+		voice.play_line("new_best")
 	hud.show_game_over(int(score), int(distance), stars_collected, Save.best_score(board_index), is_best)
 
 
