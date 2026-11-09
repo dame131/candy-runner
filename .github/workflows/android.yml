@@ -63,8 +63,26 @@ jobs:
             grep 'java_sdk_path' "$SETTINGS"
           done
 
+      - name: Diagnose export setup
+        run: |
+          echo "HOME=$HOME"
+          echo "--- templates (user) ---"
+          ls -la ~/.local/share/godot/export_templates/ 2>&1
+          ls ~/.local/share/godot/export_templates/4.2.2.stable/ 2>&1 | head -20
+          echo "--- templates (image) ---"
+          ls -la /root/.local/share/godot/export_templates/ 2>&1
+          echo "--- android sdk ---"
+          echo "ANDROID_HOME=$ANDROID_HOME ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          SDK_DIR="${ANDROID_HOME:-/opt/android-sdk}"
+          ls "$SDK_DIR/build-tools" 2>&1
+          ls "$SDK_DIR/platforms" 2>&1
+          echo "--- keystore ---"
+          ls -la godot-project/debug.keystore 2>&1
+          echo "--- settings ---"
+          grep android ~/.config/godot/editor_settings-4.tres 2>&1
+
       - name: Export Android APK (debug)
-        run: godot --headless --path godot-project --export-debug "Android" godot-project/dijah-dash.apk
+        run: godot --headless --path godot-project --export-debug "Android" godot-project/dijah-dash.apk --verbose
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
