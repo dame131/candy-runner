@@ -298,7 +298,9 @@ func _physics_process(delta: float) -> void:
 		elif sp.z > player.position.z + 2.0:
 			s.missed = true
 			stars_missed += 1
-			streak = 0
+			# Only break the streak if the missed star was in the player's lane.
+			if absf(sp.x - player.position.x) < 1.2:
+				streak = 0
 			s.queue_free()
 
 	# --- power-ups ---
