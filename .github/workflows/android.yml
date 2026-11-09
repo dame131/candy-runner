@@ -40,6 +40,23 @@ jobs:
       - name: Import project
         run: godot --headless --import --path godot-project --audio-driver Dummy --verbose
 
+      - name: Configure Java SDK path
+        run: |
+          JDK_PATH=$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")
+          echo "JDK found at: $JDK_PATH"
+          ls "$JDK_PATH/bin/javac"
+          SETTINGS="$HOME/.config/godot/editor_settings-4.2.tres"
+          mkdir -p "$(dirname "$SETTINGS")"
+          if [ ! -f "$SETTINGS" ]; then
+            printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\n' > "$SETTINGS"
+          fi
+          if grep -q '^export/android/java_sdk_path' "$SETTINGS"; then
+            sed -i "s|^export/android/java_sdk_path.*|export/android/java_sdk_path = \"$JDK_PATH\"|" "$SETTINGS"
+          else
+            printf 'export/android/java_sdk_path = "%s"\n' "$JDK_PATH" >> "$SETTINGS"
+          fi
+          grep 'java_sdk_path' "$SETTINGS"
+
       - name: Export Android APK (debug)
         run: godot --headless --path godot-project --export-debug "Android" godot-project/dijah-dash.apk
 
