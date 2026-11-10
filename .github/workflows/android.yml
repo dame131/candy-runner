@@ -44,11 +44,21 @@ jobs:
       # earlier fix wrote editor_settings-4.2.tres, a file Godot never
       # reads, which is why the export still said no Java SDK path.
       # Write both filenames to be safe.
+      # Also set the debug keystore to an ABSOLUTE path: the preset's
+      # relative "debug.keystore" resolves against the working directory,
+      # not the project, so a headless export run from the repo root
+      # cannot find it — and Godot 4.2.2 reports that failure with a
+      # blank detail line. Run #8 proved everything else is present
+      # (templates, SDK 33.0.2, keystore file) yet the export still
+      # failed blank, so the keystore resolution is the last suspect.
       - name: Configure Java SDK path
         run: |
           JDK_PATH=$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")
           echo "JDK found at: $JDK_PATH"
           ls "$JDK_PATH/bin/javac"
+          KEYSTORE_PATH="$(pwd)/godot-project/debug.keystore"
+          echo "Keystore at: $KEYSTORE_PATH"
+          ls "$KEYSTORE_PATH"
           for SETTINGS in "$HOME/.config/godot/editor_settings-4.tres" "$HOME/.config/godot/editor_settings-4.2.tres"; do
             mkdir -p "$(dirname "$SETTINGS")"
             if [ ! -f "$SETTINGS" ]; then
@@ -59,8 +69,13 @@ jobs:
             else
               printf 'export/android/java_sdk_path = "%s"\n' "$JDK_PATH" >> "$SETTINGS"
             fi
+            if grep -q '^export/android/debug_keystore =' "$SETTINGS"; then
+              sed -i "s|^export/android/debug_keystore =.*|export/android/debug_keystore = \"$KEYSTORE_PATH\"|" "$SETTINGS"
+            else
+              printf 'export/android/debug_keystore = "%s"\n' "$KEYSTORE_PATH" >> "$SETTINGS"
+            fi
             echo "--- $SETTINGS ---"
-            grep 'java_sdk_path' "$SETTINGS"
+            grep -E 'java_sdk_path|debug_keystore =' "$SETTINGS"
           done
 
       - name: Diagnose export setup
@@ -82,7 +97,10 @@ jobs:
           grep android ~/.config/godot/editor_settings-4.tres 2>&1
 
       - name: Export Android APK (debug)
-        run: godot --headless --path godot-project --export-debug "Android" godot-project/dijah-dash.apk --verbose
+        # Run from inside godot-project so the preset's relative
+        # keystore/debug="debug.keystore" resolves to the project dir.
+        working-directory: godot-project
+        run: godot --headless --path . --export-debug "Android" dijah-dash.apk --verbose
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
