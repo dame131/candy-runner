@@ -54,9 +54,13 @@ void fragment() {
 	vec2 uv = UV - vec2(0.5);
 	float r = length(uv);
 	float a = atan(uv.y, uv.x);
-	float lines = fract(a * 12.0 / 6.2831 + r * 8.0 - TIME * 1.5);
-	float streak = smoothstep(0.0, 0.08, lines) * smoothstep(0.18, 0.08, lines);
-	float edge = smoothstep(0.15, 0.65, r);
+	// Round 7: subtler — fewer, thinner streaks (8 angular divisions,
+	// narrow window) confined to the frame edges, so they suggest
+	// speed without the big white concentric arcs crossing the
+	// whole screen and cluttering the bubble and scenery.
+	float lines = fract(a * 8.0 / 6.2831 + r * 8.0 - TIME * 1.5);
+	float streak = smoothstep(0.0, 0.05, lines) * smoothstep(0.12, 0.05, lines);
+	float edge = smoothstep(0.3, 0.7, r);
 	COLOR = vec4(vec3(1.0), streak * edge * intensity);
 }
 """
@@ -139,12 +143,16 @@ void fragment() {
 	root.add_child(_objective_label)
 
 	# --- center message (big yellow warnings) ---
+	# Round 6: moved up to y ~270 (was ~380) — the raised speech
+	# bubble now occupies the old spot and the two texts collided
+	# ("NEAR MISS +50" printed across the bubble). Sits just below
+	# the objective line and just above the bubble.
 	_message_label = _make_label("", 44, Color.html("#ffd23f"), true)
 	_message_label.set_anchors_preset(Control.PRESET_CENTER)
 	_message_label.offset_left = -340
 	_message_label.offset_right = 340
-	_message_label.offset_top = -260
-	_message_label.offset_bottom = -180
+	_message_label.offset_top = -370
+	_message_label.offset_bottom = -290
 	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_message_label.visible = false
@@ -333,7 +341,8 @@ func set_speed_lines(active: bool) -> void:
 	_glow.visible = active
 	if active:
 		var smat: ShaderMaterial = _speed_lines.material
-		smat.set_shader_parameter("intensity", 0.8)
+		# Round 7: 0.35, not 0.8 — the rush lines were overpowering.
+		smat.set_shader_parameter("intensity", 0.35)
 	else:
 		var smat2: ShaderMaterial = _speed_lines.material
 		smat2.set_shader_parameter("intensity", 0.0)

@@ -37,13 +37,17 @@ func _init(p_board: Dictionary, p_rng: RandomNumberGenerator) -> void:
 	rng = p_rng
 
 
-func _mat(color_hex: String, rough: float = 0.2, glow: bool = false) -> StandardMaterial3D:
-	var key: String = color_hex + str(rough) + str(glow)
+func _mat(color_hex: String, rough: float = 0.2, glow: bool = false, vcol: bool = false) -> StandardMaterial3D:
+	var key: String = color_hex + str(rough) + str(glow) + str(vcol)
 	if _mats.has(key):
 		return _mats[key]
 	var m := StandardMaterial3D.new()
 	m.albedo_color = Color.html(color_hex)
 	m.roughness = rough
+	if vcol:
+		# Multiply the albedo by the mesh's vertex colors (COLOR_0) —
+		# the Blender waffle tiles carry baked brightness variation.
+		m.vertex_color_use_as_albedo = true
 	if glow:
 		m.emission_enabled = true
 		m.emission = Color.html(color_hex)
@@ -128,12 +132,15 @@ func build_segment(seg_index: int, z_start: float, is_finish: bool, finish_z: fl
 	var stars: Array = []
 	var powerups: Array = []
 	var pal: Dictionary = board.get("palette", {})
-	var tile_mat: StandardMaterial3D = _mat(pal.get("tile", "#e0aa6e"), 0.22)
-	var tile_dark_mat: StandardMaterial3D = _mat(pal.get("tile_dark", "#cf9557"), 0.22)
+	var tile_mat: StandardMaterial3D = _mat(pal.get("tile", "#e0aa6e"), 0.45, false, true)
+	var tile_dark_mat: StandardMaterial3D = _mat(pal.get("tile_dark", "#cf9557"), 0.45, false, true)
 	var side_mat: StandardMaterial3D = _mat(pal.get("side", "#3d2113"), 0.35)
 
 	# --- base slab (dark chocolate, shows through the tile gaps) ---
-	_box(seg, Vector3(0, -0.38, -SEG_LEN * 0.5), Vector3(7.0, 0.35, SEG_LEN + 0.1), side_mat)
+	# Fixed chocolate, NOT the palette "side": the mockups show the
+	# track as a chocolate slab on every board, and the tile bases now
+	# use the un-overridden "choc" material for the same reason.
+	_box(seg, Vector3(0, -0.38, -SEG_LEN * 0.5), Vector3(7.0, 0.35, SEG_LEN + 0.1), _mat("#3d2113", 0.35))
 
 	# --- waffle tiles: 3 lanes x 5 rows, Blender models, checkerboard ---
 	var tiles: Dictionary = {}
@@ -197,13 +204,24 @@ func build_segment(seg_index: int, z_start: float, is_finish: bool, finish_z: fl
 	if rng.randf() < 0.6:
 		_add_scenery(seg)
 	_add_edge_bears(seg)
+	_add_side_bears(seg)
 	if seg_index % 3 == 2:
 		_build_candy_arch(seg)
 	if rng.randf() < 0.85:
 		_add_sea_swirl(seg)
-	if rng.randf() < 0.35:
+	if rng.randf() < 0.9:
+		_add_sea_bubbles(seg)
+	# Busy sky: several cloud clusters per segment at several depths,
+	# plus far horizon clouds, so the top of the portrait frame is full
+	# like the mockups instead of flat lavender.
+	_add_cloud(seg)
+	if rng.randf() < 0.6:
 		_add_cloud(seg)
-	if rng.randf() < 0.3:
+	if rng.randf() < 0.7:
+		_add_far_cloud(seg)
+	if rng.randf() < 0.65:
+		_add_mountain(seg)
+	if rng.randf() < 0.2:
 		_add_mountain(seg)
 
 	# --- finish arch ---
@@ -371,9 +389,14 @@ func _add_powerup(seg: Node3D, powerups: Array, kind: String, lane: int, row: in
 func _add_scenery(seg: Node3D) -> void:
 	var pick: int = rng.randi_range(0, 5)
 	var side: float = -1.0 if rng.randf() < 0.5 else 1.0
-	# Closer to the track and bigger than before, like the mockups.
-	var x: float = side * rng.randf_range(4.0, 6.0)
-	var z: float = rng.randf_range(-11.0, -1.0)
+	# BIG and close to the track, like the mockups — but set back from
+	# the camera (z -11..-4) and well outside the rails, so they tower
+	# beside the track instead of landing on top of the player — and
+	# so a clear band of glossy sea stays visible between the rail
+	# and the props. Round 6: pushed out to x 7.5-10.0 (was 6.5-9.0)
+	# so the sea band reads in the mid field with the closer camera.
+	var x: float = side * rng.randf_range(7.5, 10.0)
+	var z: float = rng.randf_range(-11.0, -4.0)
 	match pick:
 		0:
 			_build_lollipop(seg, x, z)
@@ -391,38 +414,62 @@ func _add_scenery(seg: Node3D) -> void:
 
 func _add_edge_bears(seg: Node3D) -> void:
 	# Gummy bears standing ON the track edges, like the mockups — one per
-	# side most segments, so the edges are never bare.
+	# side every segment, plus a second bear half the time, so the edges
+	# read as rows of bears. Bigger now so they read as characters.
 	for side in [-1.0, 1.0]:
-		if rng.randf() < 0.7:
-			_build_edge_bear(seg, side * 2.9, rng.randf_range(-11.0, -1.0))
+		_build_edge_bear(seg, side * 2.9, rng.randf_range(-11.0, -3.0))
+		if rng.randf() < 0.5:
+			_build_edge_bear(seg, side * 2.9, rng.randf_range(-11.0, -3.0))
+
+
+func _add_side_bears(seg: Node3D) -> void:
+	# Gummy bears standing ON the chocolate side faces, like the mockups
+	# — perched on the rim's top edge, facing outward toward the sea.
+	# Almost every segment now, sometimes two, so the side faces are lined.
+	for side in [-1.0, 1.0]:
+		if rng.randf() < 0.9:
+			_side_bear(seg, side)
+		if rng.randf() < 0.4:
+			_side_bear(seg, side)
+
+
+func _side_bear(seg: Node3D, side: float) -> void:
+	var b: Node3D = GUMMY_BEAR.instantiate()
+	b.position = Vector3(side * 3.5, -0.15, rng.randf_range(-11.0, -3.0))
+	b.scale = Vector3.ONE * rng.randf_range(1.0, 1.2)
+	b.rotation.y = -side * PI * 0.5
+	seg.add_child(b)
+	var cols: Array = ["#7ed957", "#ff8a00", "#ffd23f", "#ff5c8a", "#ffffff"]
+	_apply_overrides(b, {"Gummy": _mat(cols[rng.randi_range(0, cols.size() - 1)], 0.08)})
 
 
 func _build_lollipop(seg: Node3D, x: float, z: float) -> void:
 	var lol: Node3D = LOLLIPOP.instantiate()
-	# Base on the sea (y=-2.5) so it rises from the syrup like the mockups
-	# instead of looming over the camera at track level.
-	lol.position = Vector3(x, -2.5, z)
-	lol.scale = Vector3.ONE * rng.randf_range(2.2, 2.8)
+	# Base on the sea (y=-1.0, raised with the sea in round 6) so it
+	# rises from the syrup like the mockups instead of looming over
+	# the camera at track level.
+	lol.position = Vector3(x, -1.0, z)
+	lol.scale = Vector3.ONE * rng.randf_range(2.5, 3.1)
 	lol.rotation.y = rng.randf_range(-0.4, 0.4)
 	seg.add_child(lol)
 	var cols: Array = ["#ff5c8a", "#5fe3c0", "#ff8a00"]
-	_apply_overrides(lol, {"LolliPink": _mat(cols[rng.randi_range(0, cols.size() - 1)], 0.15)})
+	_apply_overrides(lol, {"LolliPink": _mat(cols[rng.randi_range(0, cols.size() - 1)], 0.08)})
 
 
 func _build_ice_cream(seg: Node3D, x: float, z: float) -> void:
 	var ic: Node3D = ICE_CREAM.instantiate()
-	ic.position = Vector3(x, -2.5, z)
-	ic.scale = Vector3.ONE * rng.randf_range(2.2, 2.8)
+	ic.position = Vector3(x, -1.0, z)
+	ic.scale = Vector3.ONE * rng.randf_range(2.5, 3.1)
 	ic.rotation.y = rng.randf_range(0, TAU)
 	seg.add_child(ic)
 
 
 func _build_donut(seg: Node3D, x: float, z: float) -> void:
 	var d: Node3D = DONUT.instantiate()
-	# further out and stood up facing the camera, like the target image
-	var far_x: float = (7.5 if x > 0 else -7.5) + (1.0 if x > 0 else -1.0) * rng.randf_range(0.0, 1.5)
+	# closer in and stood up facing the camera, like the target image
+	var far_x: float = (6.5 if x > 0 else -6.5) + (1.0 if x > 0 else -1.0) * rng.randf_range(0.0, 1.5)
 	d.position = Vector3(far_x, -0.9, z)
-	d.scale = Vector3.ONE * rng.randf_range(2.0, 2.6)
+	d.scale = Vector3.ONE * rng.randf_range(2.2, 2.7)
 	d.rotation = Vector3(1.15, rng.randf_range(0, TAU), 0.2)
 	seg.add_child(d)
 
@@ -438,61 +485,128 @@ func _build_edge_bear(seg: Node3D, x: float, z: float) -> void:
 	# on the track edge, just inside the rail, like the target image
 	var edge_x: float = (2.9 if x > 0 else -2.9)
 	b.position = Vector3(edge_x, 0, z)
-	b.scale = Vector3.ONE * rng.randf_range(0.8, 1.0)
-	b.rotation.y = rng.randf_range(0, TAU)
+	b.scale = Vector3.ONE * rng.randf_range(1.1, 1.4)
+	# Face the chase camera (rotation.y = PI turns the Blender +Y snout
+	# toward Godot +Z, i.e. at the player) so the bear's face reads in
+	# the screenshot instead of a plain back. Small random tilt only.
+	b.rotation.y = PI + rng.randf_range(-0.4, 0.4)
 	seg.add_child(b)
-	var cols: Array = ["#7ed957", "#ff8a00", "#ffd23f", "#ff5c8a"]
-	_apply_overrides(b, {"Gummy": _mat(cols[rng.randi_range(0, cols.size() - 1)], 0.12)})
+	var cols: Array = ["#7ed957", "#ff8a00", "#ffd23f", "#ff5c8a", "#ffffff"]
+	_apply_overrides(b, {"Gummy": _mat(cols[rng.randi_range(0, cols.size() - 1)], 0.08)})
 
 
 func _build_cupcake(seg: Node3D, x: float, z: float) -> void:
 	var c: Node3D = CUPCAKE.instantiate()
-	c.position = Vector3(x, -2.5, z)
-	c.scale = Vector3.ONE * rng.randf_range(2.2, 2.8)
+	c.position = Vector3(x, -1.7, z)
+	c.scale = Vector3.ONE * rng.randf_range(2.5, 3.1)
 	c.rotation.y = rng.randf_range(0, TAU)
 	seg.add_child(c)
 
 
 func _add_sea_swirl(seg: Node3D) -> void:
-	# white foam streaks on the syrup sea beside the track
+	# White foam rings on the syrup sea beside the track — in the
+	# clear band between the rail and the props (x 3.7-5.5), so the sea
+	# reads wet and busy in the near and mid field, not flat.
+	# ROUND 9 FIX: the old rings were INVISIBLE because of a wrong
+	# rotation — Godot's TorusMesh already lies flat in the XZ plane,
+	# so `rotation.x = PI * 0.5` stood each ring on edge like a wheel,
+	# mostly submerged (verified: TorusMesh AABB is (2.6, 0.3, 2.6)).
+	# No rotation now: big flat white ellipses lying on the sea.
 	var white := _mat("#ffffff", 0.1)
-	for i in range(rng.randi_range(3, 5)):
+	for i in range(rng.randi_range(8, 12)):
 		var ring := MeshInstance3D.new()
 		var tm := TorusMesh.new()
-		tm.inner_radius = rng.randf_range(1.0, 1.8)
-		tm.outer_radius = tm.inner_radius + 0.3
+		tm.inner_radius = rng.randf_range(1.2, 2.0)
+		tm.outer_radius = tm.inner_radius + 0.45
 		tm.rings = 24
 		tm.ring_segments = 8
 		ring.mesh = tm
-		ring.rotation.x = PI * 0.5
 		ring.scale = Vector3(1.6, 1.0, 1.0)
 		var side: float = -1.0 if rng.randf() < 0.5 else 1.0
-		ring.position = Vector3(side * rng.randf_range(6.0, 14.0), -2.3, rng.randf_range(-11.0, -1.0))
+		ring.position = Vector3(side * rng.randf_range(3.7, 5.5), -0.90, rng.randf_range(-11.0, -1.0))
 		ring.material_override = white
 		seg.add_child(ring)
 
 
+func _add_sea_bubbles(seg: Node3D) -> void:
+	# Glossy bubbles sitting on the sea surface near the track, like the
+	# mockup's syrup — white and shiny so they catch the sun and bloom.
+	# Round 9: bigger (0.12-0.30) and hugging the track edge (x 3.7-5.5)
+	# so they read in the near field, not lost out by the props.
+	var white := _mat("#ffffff", 0.05)
+	for i in range(rng.randi_range(8, 12)):
+		var side: float = -1.0 if rng.randf() < 0.5 else 1.0
+		var r: float = rng.randf_range(0.12, 0.3)
+		_sphere(seg, Vector3(side * rng.randf_range(3.7, 5.5), -0.90, rng.randf_range(-11.0, -1.0)), r, white)
+
+
 func _add_cloud(seg: Node3D) -> void:
-	var x: float = rng.randf_range(-12.0, 12.0)
-	var y: float = rng.randf_range(6.0, 10.0)
-	var z: float = rng.randf_range(-11.0, -1.0)
+	# Big fluffy 3D cloud cluster — 8 rounder spheres (less squashed
+	# than before, so it reads as a puff, not a flat pancake) plus two
+	# grey-blue underside puffs so the bottom has shading and depth.
+	# Several depths so the sky feels layered. Round 6: shrunk ~25%
+	# and lifted (y 8-13.5, z -14..-4) — with the closer camera the
+	# old clouds loomed over the track as huge flat white masses.
+	var x: float = rng.randf_range(-16.0, 16.0)
+	var y: float = rng.randf_range(8.0, 13.5)
+	var z: float = rng.randf_range(-14.0, -4.0)
 	var white := _mat("#ffffff", 0.6)
-	var c := _sphere(seg, Vector3(x, y, z), 1.4, white)
-	c.scale = Vector3(1.6, 0.55, 1.0)
-	var c2 := _sphere(seg, Vector3(x + 1.6, y + 0.3, z), 1.0, white)
-	c2.scale = Vector3(1.4, 0.55, 1.0)
+	var shade := _mat("#d5dbe8", 0.6)
+	var parts: Array = [
+		[Vector3(x, y, z), 1.8, Vector3(1.6, 0.8, 1.0)],
+		[Vector3(x + 1.8, y + 0.3, z), 1.4, Vector3(1.4, 0.8, 1.0)],
+		[Vector3(x - 1.8, y + 0.2, z), 1.2, Vector3(1.3, 0.8, 1.0)],
+		[Vector3(x + 0.7, y + 1.2, z), 1.1, Vector3(1.3, 0.85, 1.0)],
+		[Vector3(x - 0.8, y + 1.0, z), 1.0, Vector3(1.2, 0.85, 1.0)],
+		[Vector3(x + 2.6, y - 0.1, z), 0.8, Vector3(1.2, 0.8, 1.0)],
+		[Vector3(x - 2.4, y - 0.2, z), 0.75, Vector3(1.2, 0.8, 1.0)],
+		[Vector3(x + 0.2, y + 1.9, z), 0.8, Vector3(1.2, 0.85, 1.0)],
+	]
+	for p in parts:
+		var c := _sphere(seg, p[0], p[1], white)
+		c.scale = p[2]
+	for p in [
+		[Vector3(x - 1.0, y - 0.9, z), 1.0, Vector3(1.3, 0.7, 1.0)],
+		[Vector3(x + 1.2, y - 1.0, z), 0.85, Vector3(1.2, 0.7, 1.0)],
+	]:
+		var c := _sphere(seg, p[0], p[1], shade)
+		c.scale = p[2]
+
+
+func _add_far_cloud(seg: Node3D) -> void:
+	# Distant horizon cloud, high and far — layers the sky so the
+	# portrait top isn't one flat color.
+	var x: float = rng.randf_range(-20.0, 20.0)
+	var y: float = rng.randf_range(12.0, 16.0)
+	var z: float = rng.randf_range(-30.0, -18.0)
+	var white := _mat("#ffffff", 0.6)
+	var shade := _mat("#d5dbe8", 0.6)
+	var parts: Array = [
+		[Vector3(x, y, z), 3.5, Vector3(1.8, 0.75, 1.0)],
+		[Vector3(x + 3.0, y + 0.6, z), 2.6, Vector3(1.5, 0.75, 1.0)],
+		[Vector3(x - 3.0, y + 0.5, z), 2.2, Vector3(1.4, 0.75, 1.0)],
+		[Vector3(x + 1.0, y + 1.3, z), 1.8, Vector3(1.3, 0.8, 1.0)],
+		[Vector3(x - 1.2, y + 1.1, z), 1.6, Vector3(1.3, 0.8, 1.0)],
+	]
+	for p in parts:
+		var c := _sphere(seg, p[0], p[1], white)
+		c.scale = p[2]
+	var c := _sphere(seg, Vector3(x, y - 1.1, z), 1.8, shade)
+	c.scale = Vector3(1.6, 0.65, 1.0)
 
 
 func _add_mountain(seg: Node3D) -> void:
 	var side: float = -1.0 if rng.randf() < 0.5 else 1.0
-	# Far background only — close mountains filled the whole frame.
-	var x: float = side * rng.randf_range(18.0, 30.0)
+	# Further out than round 4 (x 14-22 crowded the frame edges and
+	# hid the sea band) — still close enough to show at the frame
+	# edges and top in portrait.
+	var x: float = side * rng.randf_range(20.0, 30.0)
 	var z: float = rng.randf_range(-11.0, -1.0)
 	var m: Node3D = MOUNTAIN.instantiate()
 	m.position = Vector3(x, -0.9, z)
-	m.scale = Vector3.ONE * rng.randf_range(2.2, 3.0)
+	m.scale = Vector3.ONE * rng.randf_range(1.8, 2.4)
 	seg.add_child(m)
-	var cols: Array = ["#c9a0dc", "#ff9ec7", "#a8e063", "#ffb347"]
+	var cols: Array = ["#a55cd6", "#ff5c9e", "#6fbf3a", "#e86a00", "#ffb38a", "#7fe0b0"]
 	_apply_overrides(m, {"Mountain": _mat(cols[rng.randi_range(0, cols.size() - 1)], 0.5)})
 
 

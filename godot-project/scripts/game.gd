@@ -94,7 +94,7 @@ func _ready() -> void:
 	env.background_color = Boards.palette_color(board, "sky")
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Boards.palette_color(board, "sky").lerp(Color.WHITE, 0.45)
-	env.ambient_light_energy = 0.25
+	env.ambient_light_energy = 0.3
 	env.fog_enabled = true
 	env.fog_light_color = Boards.palette_color(board, "fog")
 	env.fog_density = 0.004
@@ -102,8 +102,8 @@ func _ready() -> void:
 	# candy colors pop like the mockups instead of rendering flat.
 	# (ACES washed the warm tiles pale — filmic keeps them saturated.)
 	env.glow_enabled = true
-	env.glow_intensity = 0.7
-	env.glow_strength = 1.1
+	env.glow_intensity = 0.9
+	env.glow_strength = 1.25
 	env.glow_bloom = 0.15
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
@@ -111,23 +111,64 @@ func _ready() -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
+	# Key sun: stronger and warm so glossy candy catches highlights.
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-50, -30, 0)
-	sun.light_energy = 0.95
+	sun.light_color = Color.html("#fff2dd")
+	sun.light_energy = 1.3
 	sun.shadow_enabled = true
 	add_child(sun)
+	# Cool fill from the opposite side so the shaded side isn't dead
+	# black and the gloss reads from both sides.
+	var fill := DirectionalLight3D.new()
+	fill.rotation_degrees = Vector3(-30, 150, 0)
+	fill.light_color = Color.html("#cfe8ff")
+	fill.light_energy = 0.35
+	fill.shadow_enabled = false
+	add_child(fill)
 
 	# --- glossy syrup sea below the track ---
+	# Procedural ripple texture (not a flat plane): simplex noise through
+	# a color ramp, tiled 12x over the plane, so the sea reads wet and
+	# busy like the mockups. The plane is long and re-centered in 600 m
+	# jumps — the noise tiles every 20 m (240/12), and 600 is a multiple,
+	# so the pattern never visibly slides with the player.
 	var sea_mesh := PlaneMesh.new()
-	sea_mesh.size = Vector2(240, 240)
+	sea_mesh.size = Vector2(240, 1400)
 	_sea = MeshInstance3D.new()
 	_sea.mesh = sea_mesh
 	var sea_mat := StandardMaterial3D.new()
-	sea_mat.albedo_color = Boards.palette_color(board, "sea")
-	sea_mat.roughness = 0.08
-	sea_mat.metallic = 0.35
+	var sea_col: Color = Boards.palette_color(board, "sea")
+	sea_mat.albedo_color = sea_col
+	var sea_noise := FastNoiseLite.new()
+	sea_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	# Round 9: finer + stronger ripples — the old 0.06 frequency made
+	# huge soft blobs that read as flat color at game distance. Finer
+	# noise with a steep ramp reads as syrup ripples with bright crests.
+	sea_noise.frequency = 0.13
+	sea_noise.fractal_octaves = 5
+	var sea_tex := NoiseTexture2D.new()
+	sea_tex.width = 256
+	sea_tex.height = 256
+	sea_tex.noise = sea_noise
+	var sea_grad := Gradient.new()
+	sea_grad.set_color(0, sea_col.darkened(0.45))
+	sea_grad.add_point(0.55, sea_col.lightened(0.2))
+	sea_grad.set_color(1, sea_col.lightened(0.9))
+	sea_tex.color_ramp = sea_grad
+	sea_mat.albedo_texture = sea_tex
+	sea_mat.uv1_scale = Vector3(12, 12, 1)
+	sea_mat.roughness = 0.05
+	sea_mat.metallic = 0.6
 	_sea.material_override = sea_mat
-	_sea.position = Vector3(0, -2.5, -40)
+	# Raised to y=-1.0 (was -1.7) so the sea laps closer to the track
+	# sides and the sightline over the rail clears it sooner — the
+	# sea must READ beside the track in the mid field, not hide
+	# below the track's side faces. Base albedo lightened so the sea
+	# is brighter than the track tiles even on dark boards (board 21:
+	# sea #4a1a8a vs tiles #5e3a8a were nearly the same value).
+	sea_mat.albedo_color = sea_col.lightened(0.2)
+	_sea.position = Vector3(0, -1.0, -600)
 	add_child(_sea)
 
 	# --- player + Dijah ---
@@ -138,12 +179,17 @@ func _ready() -> void:
 	player.add_child(character)
 	character.set_outfit(Boards.OUTFITS[Save.outfit_equipped])
 
-	# --- chase camera: behind the hero, hero small in frame ---
+	# --- chase camera: CLOSE, hero prominent ---
+	# Round 6: Dijah was ~15% of frame height (too small, read as a
+	# doll). Camera pulled in to z+5.2, lowered to y 3.1, FOV 74 —
+	# she should measure ~25-30% of frame height. Portrait can't show
+	# sea in the bottom corners (geometry, round 2), but the wider FOV
+	# + closer camera opens the mid-field sea band at the sides.
 	camera = Camera3D.new()
-	camera.fov = 65.0
+	camera.fov = 74.0
 	camera.near = 0.1
 	camera.far = 250.0
-	camera.position = Vector3(0, 3.6, 7.4)
+	camera.position = Vector3(0, 3.1, 5.2)
 	add_child(camera)
 
 	# --- track ---
@@ -332,7 +378,7 @@ func _physics_process(delta: float) -> void:
 	# --- sugar rush: speed lines + wider FOV ---
 	var rush: bool = streak >= 5
 	hud.set_speed_lines(rush)
-	camera.fov = lerpf(camera.fov, 73.0 if rush else 65.0, delta * 3.0)
+	camera.fov = lerpf(camera.fov, 80.0 if rush else 74.0, delta * 3.0)
 
 	# --- objectives ---
 	var stats: Dictionary = _stats()
@@ -352,9 +398,11 @@ func _physics_process(delta: float) -> void:
 		return
 
 	# --- camera + sea follow ---
-	camera.position = Vector3(player.position.x * 0.35, 3.6, player.position.z + 7.4)
-	camera.look_at(Vector3(player.position.x * 0.5, 0.8, player.position.z - 8.0))
-	_sea.position = Vector3(0, -2.5, player.position.z - 40.0)
+	camera.position = Vector3(player.position.x * 0.35, 3.1, player.position.z + 5.2)
+	camera.look_at(Vector3(player.position.x * 0.5, 0.9, player.position.z - 8.0))
+	# Sea follows in 600 m jumps so the noise texture stays world-locked.
+	var sea_target_z: float = floor((player.position.z - 40.0) / 600.0) * 600.0
+	_sea.position = Vector3(0, -1.0, sea_target_z)
 
 	_update_hud()
 

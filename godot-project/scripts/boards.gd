@@ -28,7 +28,7 @@ extends Node
 const BOARDS: Array = [
 	{
 		"name": "Candyland", "look": "pink syrup",
-		"palette": {"tile": "#c98a4e", "tile_dark": "#a8703a", "side": "#2e1a0c", "rail_left": "#ff5c8a", "rail_right": "#5fe3c0", "rim": "#ff5c8a", "syrup": "#7a1030", "sea": "#ff2e7e", "sky": "#ffb3cf", "fog": "#ff8fb8", "accent": "#ffd23f", "scenery": "#ff9ec7"},
+		"palette": {"tile": "#bd8143", "tile_dark": "#9a652f", "side": "#2e1a0c", "rail_left": "#ff5c8a", "rail_right": "#5fe3c0", "rim": "#ff5c8a", "syrup": "#7a1030", "sea": "#ff2e7e", "sky": "#ffb3cf", "fog": "#ff8fb8", "accent": "#ffd23f", "scenery": "#ff9ec7"},
 		"objective": {"type": "collect", "target": 10, "label": "Collect 10 sugar stars"},
 		"obstacle": "hole", "speed": 9.0, "length": 300,
 		"music": {"tempo": 118, "root": 60, "scale": [0, 2, 4, 7, 9], "wave": 0},
@@ -168,7 +168,7 @@ const BOARDS: Array = [
 	},
 	{
 		"name": "Blueberry Bash", "look": "blueberry patch",
-		"palette": {"tile": "#5e3a8a", "tile_dark": "#4a2a6e", "side": "#1e0a33", "rail_left": "#7b5cd6", "rail_right": "#ff5c8a", "rim": "#7b5cd6", "syrup": "#1a0830", "sea": "#5a2ea8", "sky": "#b39ae0", "fog": "#8a68c8", "accent": "#7b5cd6", "scenery": "#6e4ab8"},
+		"palette": {"tile": "#5e3a8a", "tile_dark": "#4a2a6e", "side": "#1e0a33", "rail_left": "#7b5cd6", "rail_right": "#ff5c8a", "rim": "#7b5cd6", "syrup": "#1a0830", "sea": "#4a1a8a", "sky": "#b39ae0", "fog": "#8a68c8", "accent": "#7b5cd6", "scenery": "#6e4ab8"},
 		"objective": {"type": "distance", "target": 400, "no_fall": true, "label": "Run 400m without falling"},
 		"obstacle": "blueberry_roller", "speed": 10.0, "length": 400,
 		"music": {"tempo": 130, "root": 57, "scale": [0, 3, 5, 7, 10], "wave": 1},

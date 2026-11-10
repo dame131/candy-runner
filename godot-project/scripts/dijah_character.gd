@@ -22,8 +22,8 @@ var _bottom_mat: StandardMaterial3D
 var _shoe_mat: StandardMaterial3D
 var _cape_mat: StandardMaterial3D
 var _bob_phase: float = 0.0
-var _body_base_y: float = 0.85
-var _head_base_y: float = 1.55
+var _body_base_y: float = 1.42
+var _head_base_y: float = 1.92
 
 
 func _ready() -> void:
@@ -50,11 +50,13 @@ func _ready() -> void:
 	_recolor("Shoes", _shoe_mat)
 
 	# --- cape (hidden unless the outfit has one) ---
+	# Round 7 proportions: shoulders at 1.80, slim 0.23 torso — cape
+	# hangs from the shoulders, just proud of the back (z 0.28).
 	_cape = MeshInstance3D.new()
 	var cape_box := BoxMesh.new()
-	cape_box.size = Vector3(0.5, 0.7, 0.03)
+	cape_box.size = Vector3(0.42, 0.62, 0.03)
 	_cape.mesh = cape_box
-	_cape.position = Vector3(0, 0.85, 0.32)
+	_cape.position = Vector3(0, 1.50, 0.28)
 	_cape.material_override = _cape_mat
 	_cape.visible = false
 	add_child(_cape)

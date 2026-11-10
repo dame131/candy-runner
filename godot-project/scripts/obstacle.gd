@@ -137,6 +137,57 @@ func _cyl(parent: Node3D, pos: Vector3, r_top: float, r_bot: float, h: float, ma
 	return mi
 
 
+func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, n: Vector3) -> void:
+	# One flat-shaded triangle with an explicit normal.
+	st.set_normal(n)
+	st.add_vertex(a)
+	st.set_normal(n)
+	st.add_vertex(b)
+	st.set_normal(n)
+	st.add_vertex(c)
+
+
+func _star_prism(parent: Node3D, pos: Vector3, outer_r: float, inner_r: float, thick: float, mat: Material) -> MeshInstance3D:
+	# A proper 5-point star, extruded flat — the blueberry's crown calyx.
+	# One point faces +Z (toward the chase camera). Culling is disabled
+	# on the material so winding never hides a face; normals are set
+	# explicitly per face for flat shading.
+	var pts: Array = []
+	for k in range(10):
+		var a: float = PI * 0.5 + float(k) * PI / 5.0
+		var r: float = outer_r if k % 2 == 0 else inner_r
+		pts.append(Vector3(cos(a) * r, 0, sin(a) * r))
+	var half: float = thick * 0.5
+	var top_c := Vector3(0, half, 0)
+	var bot_c := Vector3(0, -half, 0)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in range(10):
+		var p0: Vector3 = pts[k]
+		var p1: Vector3 = pts[(k + 1) % 10]
+		var t0 := Vector3(p0.x, half, p0.z)
+		var t1 := Vector3(p1.x, half, p1.z)
+		var b0 := Vector3(p0.x, -half, p0.z)
+		var b1 := Vector3(p1.x, -half, p1.z)
+		# top face (+Y) and bottom face (-Y)
+		_tri(st, top_c, t1, t0, Vector3(0, 1, 0))
+		_tri(st, bot_c, b0, b1, Vector3(0, -1, 0))
+		# side quad, outward normal (away from the star center)
+		var e: Vector3 = p1 - p0
+		var n := Vector3(e.z, 0, -e.x).normalized()
+		var mid: Vector3 = (p0 + p1) * 0.5
+		if n.dot(mid) < 0.0:
+			n = -n
+		_tri(st, t0, b0, b1, n)
+		_tri(st, t0, b1, t1, n)
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.position = pos
+	mi.material_override = mat
+	parent.add_child(mi)
+	return mi
+
+
 # --- Visual builders ---
 
 const GUMMY_BEAR: PackedScene = preload("res://models/gummy_bear.glb")
@@ -192,27 +243,41 @@ func _build_pinwheel(board: Dictionary) -> void:
 
 
 func _build_sticky_patch(board: Dictionary) -> void:
+	# Deep dark caramel puddle — the old orange disc (#e07b00) was
+	# nearly invisible on board 7's yellow tiles. Dark brown reads
+	# as a sticky puddle from the chase camera.
 	var disc := MeshInstance3D.new()
 	var c := CylinderMesh.new()
 	c.top_radius = 1.1
 	c.bottom_radius = 1.1
-	c.height = 0.06
+	c.height = 0.08
 	disc.mesh = c
-	disc.position = Vector3(0, 0.03, 0)
+	disc.position = Vector3(0, 0.04, 0)
 	var m := StandardMaterial3D.new()
-	m.albedo_color = Color.html("#e07b00")
+	m.albedo_color = Color.html("#6e2f00")
 	m.roughness = 0.05
 	m.metallic = 0.2
 	disc.material_override = m
 	add_child(disc)
-	# glossy bubbles on the caramel
-	_sphere(self, Vector3(0.4, 0.08, 0.3), 0.16, _mat(Color.html("#ffb347"), 0.1))
-	_sphere(self, Vector3(-0.5, 0.08, -0.2), 0.12, _mat(Color.html("#ffb347"), 0.1))
+	# darker rim ring so the puddle edge reads on any tile color
+	var rim := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 1.05
+	tm.outer_radius = 1.25
+	rim.mesh = tm
+	rim.position = Vector3(0, 0.05, 0)
+	rim.material_override = _mat(Color.html("#3a1c05"), 0.1)
+	add_child(rim)
+	# glossy golden bubbles on the caramel
+	_sphere(self, Vector3(0.4, 0.1, 0.3), 0.22, _mat(Color.html("#ffd23f"), 0.1))
+	_sphere(self, Vector3(-0.5, 0.1, -0.2), 0.18, _mat(Color.html("#ffd23f"), 0.1))
 
 
 func _build_bubble() -> void:
+	# A big bubblegum bubble. The old pale pink (1.0,0.6,0.9,0.45)
+	# read as a white blob; deeper pink + more opaque reads as gum.
 	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(1.0, 0.6, 0.9, 0.45)
+	m.albedo_color = Color(1.0, 0.22, 0.72, 0.7)
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.roughness = 0.05
 	_sphere(self, Vector3(0, 1.6, 0), 0.7, m)
@@ -282,8 +347,11 @@ func _build_wind_gust() -> void:
 
 
 func _build_falling_chunk(board: Dictionary) -> void:
-	_chunk = _box(self, Vector3(0, 7.0, 0), Vector3(1.4, 1.1, 1.4), _mat(Color.html("#3a1c05"), 0.5))
-	_box(_chunk, Vector3(0, 0.56, 0), Vector3(1.2, 0.1, 1.2), _mat(Color.html("#5e2a10"), 0.4))
+	# Milk-chocolate chunk with a bright gold top. The old very dark
+	# brown (#3a1c05) was camouflaged against board 15's dark tiles —
+	# the chunk was invisible while falling and after landing.
+	_chunk = _box(self, Vector3(0, 7.0, 0), Vector3(1.4, 1.1, 1.4), _mat(Color.html("#7a4a22"), 0.5))
+	_box(_chunk, Vector3(0, 0.56, 0), Vector3(1.2, 0.1, 1.2), _mat(Color.html("#ffd23f"), 0.4))
 
 
 func _build_bouncing_drop(board: Dictionary) -> void:
@@ -328,24 +396,27 @@ func _build_blueberry_roller() -> void:
 	# Giant glossy blueberry rolling down the track at Dijah.
 	# Deep blueberry purple (not bright blue) with a star-shaped crown
 	# calyx on top, like a real blueberry.
-	_ball = _sphere(self, Vector3(0, 0.75, 0), 0.75, _mat(Color.html("#3a1a6e"), 0.12))
+	# Round 7: scaled up 1.3x (radius 0.97, top 1.94) so the rollers
+	# dominate the track like the mockup's giant spheres — round 6's
+	# 0.75 ball read as a plain purple ball at game distance.
+	_ball = _sphere(self, Vector3(0, 0.97, 0), 0.97, _mat(Color.html("#3a1a6e"), 0.12))
+	# The ball SPINS in _process (rotation.x -= delta * 3.0), so the
+	# crown and highlight must NOT be children of the ball — they
+	# would roll under it and vanish. They are children of the
+	# obstacle itself, fixed at the ball's top, so the crown stays on
+	# top and reads as a crown from the chase camera at all times.
 	# lighter purple highlight bump so it reads round and glossy
-	# (child of the ball, so it rolls with the berry)
-	_sphere(_ball, Vector3(-0.25, 0.3, 0.45), 0.22, _mat(Color.html("#7b5cd6"), 0.15))
-	# star-shaped crown: 5 small flattened petals radiating on top
-	var crown_mat: Material = _mat(Color.html("#1a0830"), 0.3)
-	for i in range(5):
-		var ang: float = TAU * float(i) / 5.0
-		var petal := MeshInstance3D.new()
-		var b := BoxMesh.new()
-		b.size = Vector3(0.12, 0.05, 0.3)
-		petal.mesh = b
-		petal.position = Vector3(cos(ang) * 0.2, 0.73, sin(ang) * 0.2)
-		petal.rotation.y = -ang
-		petal.material_override = crown_mat
-		_ball.add_child(petal)
-	# center dimple
-	_sphere(_ball, Vector3(0, 0.72, 0), 0.09, crown_mat)
+	_sphere(self, Vector3(-0.33, 1.37, 0.59), 0.29, _mat(Color.html("#7b5cd6"), 0.15))
+	# star-shaped crown: a proper 5-point star prism in bright glossy
+	# purple-pink (the old dark box petals read as a grey hexagon
+	# from behind). Sits just proud of the ball's top surface.
+	# Round 7: scaled with the ball (outer 0.66) so it reads at game
+	# distance — round 6's 0.51 star was still ~30-40 px.
+	var crown_mat: StandardMaterial3D = _mat(Color.html("#c44dff"), 0.15, true)
+	crown_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_star_prism(self, Vector3(0, 1.88, 0), 0.66, 0.29, 0.18, crown_mat)
+	# center dimple on top of the star
+	_sphere(self, Vector3(0, 1.93, 0), 0.13, _mat(Color.html("#1a0830"), 0.3))
 
 
 func _build_honeycomb_wall(board: Dictionary) -> void:
@@ -357,10 +428,12 @@ func _build_honeycomb_wall(board: Dictionary) -> void:
 			continue
 		var x: float = float(lane_i) * 2.2
 		_box(self, Vector3(x, 0.8, 0), Vector3(2.1, 1.6, 0.5), gold)
-		# honeycomb cells: small cylinders on the face
+		# honeycomb cells: small cylinders on the NEAR face (+z, toward
+		# the chase camera). The old z=-0.28 put them on the far face,
+		# hidden behind the box — the wall read as flat yellow panels.
 		for cy in [-0.4, 0.3]:
 			for cx in [-0.6, 0.0, 0.6]:
-				_cyl(self, Vector3(x + cx, 0.8 + cy, -0.28), 0.22, 0.22, 0.06, dark)
+				_cyl(self, Vector3(x + cx, 0.8 + cy, 0.28), 0.26, 0.26, 0.06, dark)
 	# golden frame on top
 	_box(self, Vector3(0, 1.7, 0), Vector3(6.6, 0.25, 0.5), dark)
 
@@ -471,7 +544,11 @@ func check_player(player_pos: Vector3, player_y: float) -> String:
 			if absf(dz) < 0.85 and absf(px - float(lane) * 2.2) < 0.85 and player_y < 0.7:
 				return "hit"
 		"blueberry_roller":
-			if absf(dz) < 0.9 and absf(px - float(lane) * 2.2) < 0.9 and player_y < 0.9:
+			# Round 7: ball is 1.3x bigger (radius 0.97), so the hitbox
+			# widens to match the visual and the jump clearance rises
+			# to 1.2 — still well under the ~2.05 jump apex, so the
+			# rollers stay jumpable.
+			if absf(dz) < 1.0 and absf(px - float(lane) * 2.2) < 1.0 and player_y < 1.2:
 				return "hit"
 		"pinwheel":
 			if absf(dz) < 0.9 and absf(px - float(lane) * 2.2) < 1.0 and player_y < 1.35:

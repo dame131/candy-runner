@@ -85,6 +85,7 @@ const BLUEBERRY_CLIPS: Dictionary = {
 
 var _player: AudioStreamPlayer
 var _bubble: Label3D
+var _bubble_panel: Sprite3D
 var _bubble_timer: float = 0.0
 var _time_alive: float = 0.0
 var _last_line_time: float = -100.0
@@ -97,6 +98,21 @@ func _ready() -> void:
 	_player = AudioStreamPlayer.new()
 	_player.bus = "Master"
 	add_child(_player)
+	# Dark rounded panel behind the bubble text (like the HUD panels:
+	# dark plum, thin pink border) so white text always reads over the
+	# busy track. Generated once as a texture; sized per line below.
+	_bubble_panel = Sprite3D.new()
+	_bubble_panel.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_bubble_panel.no_depth_test = true
+	_bubble_panel.shaded = false
+	_bubble_panel.texture = _panel_texture()
+	_bubble_panel.pixel_size = 0.0074  # 256 px texture -> ~1.9 m wide
+	# Round 6: raised to 3.45 (was 2.65) — with the closer camera the
+	# bubble sat right on top of her head and hid the braids. At 3.45
+	# it floats above her head, clear of the hair and below the HUD.
+	_bubble_panel.position = Vector3(0, 3.45, -0.06)
+	_bubble_panel.visible = false
+	add_child(_bubble_panel)
 	_bubble = Label3D.new()
 	_bubble.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_bubble.no_depth_test = true
@@ -108,9 +124,54 @@ func _ready() -> void:
 	_bubble.outline_size = 8
 	_bubble.modulate = Color.html("#ffffff")
 	_bubble.outline_modulate = Color.html("#4a1030")
-	_bubble.position = Vector3(0, 2.4, 0)
+	# Raised so the panel clears her head (top of hair ~2.2) — and
+	# with the round-6 closer camera, raised further to 3.45 so it
+	# never covers the braids.
+	_bubble.position = Vector3(0, 3.45, 0)
 	_bubble.visible = false
 	add_child(_bubble)
+
+
+func _panel_texture() -> ImageTexture:
+	# Rounded rectangle, dark plum fill, pink border, transparent outside.
+	var w := 256
+	var h := 176
+	var rad := 30.0
+	var border_px := 7.0
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var fill := Color(0.16, 0.04, 0.12, 0.94)
+	var border := Color(1.0, 0.36, 0.54, 1.0)
+	for y in range(h):
+		for x in range(w):
+			var px: float = float(x) + 0.5
+			var py: float = float(y) + 0.5
+			var cx: float = clampf(px, rad, float(w) - rad)
+			var cy: float = clampf(py, rad, float(h) - rad)
+			var d: float = Vector2(px - cx, py - cy).length()
+			if d > rad:
+				continue
+			var bx: float = clampf(px, rad + border_px, float(w) - rad - border_px)
+			var by: float = clampf(py, rad + border_px, float(h) - rad - border_px)
+			var bd: float = Vector2(px - bx, py - by).length()
+			img.set_pixel(x, y, border if bd > rad - border_px else fill)
+	return ImageTexture.create_from_image(img)
+
+
+func _bubble_lines(text: String) -> int:
+	# Greedy word wrap at ~11 chars/line (matches Label3D width 320
+	# at font 48) so the panel height fits the wrapped text.
+	var lines := 1
+	var cur := 0
+	for word in text.split(" "):
+		var wl: int = word.length()
+		if cur == 0:
+			cur = wl
+		elif cur + 1 + wl <= 11:
+			cur += 1 + wl
+		else:
+			lines += 1
+			cur = wl
+	return lines
 
 
 ## Event line: always plays (replaces any general line currently playing).
@@ -152,6 +213,11 @@ func _play(event: String, is_event: bool) -> void:
 	var text: String = String(LINES.get(event, GENERAL_LINES.get(event, BLUEBERRY_LINES.get(event, ""))))
 	_bubble.text = text
 	_bubble.visible = true
+	# Size the panel to the wrapped text (line ~0.28 m at this font size,
+	# texture is 1.9 x 1.31 m at pixel_size 0.0074).
+	var ph: float = float(_bubble_lines(text)) * 0.28 + 0.30
+	_bubble_panel.scale = Vector3(1.0, ph / 1.31, 1.0)
+	_bubble_panel.visible = true
 	_bubble_timer = BUBBLE_TIME
 	_playing_event = is_event and not Save.muted
 	_last_line_time = _time_alive
@@ -174,3 +240,4 @@ func _process(delta: float) -> void:
 		_bubble_timer -= delta
 		if _bubble_timer <= 0.0:
 			_bubble.visible = false
+			_bubble_panel.visible = false
