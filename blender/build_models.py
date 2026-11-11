@@ -297,17 +297,18 @@ def build_tile(variant, seed):
     import random
     rnd = random.Random(seed)
     clean()
-    tile = gloss("tile", "#e0aa6e", 0.22)
+    tile = gloss("tile", "#e8b478", 0.18)
+    pocket = gloss("waffle_pocket", "#8c5628", 0.34)
     side = gloss("side", "#3d2113", 0.35)
     # chocolate base slab
     base = rbox("Base", (2.14, 2.34, 0.35), (0, 0, -0.175), side, bevel_w=0.04)
-    # waffle top slab
-    top = rbox("Top", (2.06, 2.26, 0.10), (0, 0, -0.05), tile, bevel_w=0.03)
+    # recessed toasted waffle pocket bed
+    top = rbox("Top", (2.06, 2.26, 0.10), (0, 0, -0.05), pocket, bevel_w=0.03)
     objs = [base, top]
-    # 2x2 raised waffle grid cells
+    # 2x2 raised 3D waffle grid cushions with deeper relief
     for gx in (-0.47, 0.47):
         for gy in (-0.53, 0.53):
-            cell = rbox("Cell", (0.86, 0.86, 0.06), (gx, gy, 0.03), tile, bevel_w=0.03)
+            cell = rbox("Cell", (0.84, 0.84, 0.11), (gx, gy, 0.055), tile, bevel_w=0.035)
             objs.append(cell)
     # sprinkles: tiny capsules lying flat on top (real geometry, so they
     # catch light and bloom — 12 per tile for a dense candy look)

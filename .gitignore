@@ -1,0 +1,4 @@
+# Build artifacts
+builds/windows/
+.godot/
+*.tmp
