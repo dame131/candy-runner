@@ -17,12 +17,27 @@ func _process(_delta: float) -> bool:
 	else:
 		var b_obj = boards_script.new()
 		var count = b_obj.board_count()
-		print("[TEST 1] Boards count: %d (expected 50)" % count)
-		if count != 50:
-			print("[FAIL] Board count is not 50")
+		print("[TEST 1] Boards count: %d (expected 100)" % count)
+		if count != 100:
+			print("[FAIL] Board count is not 100")
 			failures += 1
 		else:
-			print("[PASS] 50 campaign boards verified")
+			print("[PASS] 100 campaign boards verified")
+		
+		# Sample milestone boards across all 100
+		var b1 = b_obj.get_board(0)
+		var b51 = b_obj.get_board(50)
+		var b61 = b_obj.get_board(60)
+		var b71 = b_obj.get_board(70)
+		var b81 = b_obj.get_board(80)
+		var b91 = b_obj.get_board(90)
+		var b100 = b_obj.get_board(99)
+		print("[TEST 1] Board 1: %s, Board 51: %s, Board 100: %s" % [b1.get("name"), b51.get("name"), b100.get("name")])
+		if b51.get("name") != "Glazed Donut Dunes" or b100.get("name") != "The Ultimate Sweet Relief":
+			print("[FAIL] Board milestone names mismatch: %s / %s" % [b51.get("name"), b100.get("name")])
+			failures += 1
+		else:
+			print("[PASS] Handcrafted expansion boards 51-100 names verified")
 		
 		var endless_board = b_obj.get_board(999)
 		if endless_board.get("is_endless") != true or endless_board.get("name") != "Endless Sugar Rush":

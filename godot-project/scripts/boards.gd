@@ -253,14 +253,17 @@ const ABILITY_ITEMS: Array = [
 var selected_board: int = 0
 
 
-## ---- 50-board campaign (art LOCKED: boards 22-50 re-use the existing stage palettes,
-## obstacles and music; only pacing, length, speed and targets change) ----
-const TOTAL_BOARDS: int = 50
+## ---- 100-board campaign (art LOCKED: boards 22-50 re-use stage palettes,
+## boards 51-100 are hand-crafted expansion boards from BoardsExpansion) ----
+const TOTAL_BOARDS: int = 100
 ## 3-act speed ramp multipliers (Act I warm-up, Act II pick-up, Act III sprint).
 const ACT_MULTS: Array = [0.90, 1.05, 1.22]
 ## Average of (1 / act multiplier) across the three equal-ish acts -> nominal run time.
 const ACT_AVG_INV: float = 0.961
 var _all: Array = []
+
+
+const BoardsExpansionScript = preload("res://scripts/boards_expansion.gd")
 
 
 func _ensure_built() -> void:
@@ -271,23 +274,28 @@ func _ensure_built() -> void:
 		var src: Dictionary
 		if i < legacy_n:
 			src = BOARDS[i]
-		else:
+		elif i < 50:
 			# Re-use stage looks 1-20 (skip the one-off Blueberry joke board).
 			src = BOARDS[(i - legacy_n) % (legacy_n - 1)]
+		else:
+			# Boards 51-100: Hand-crafted 50 expansion boards
+			src = BoardsExpansionScript.EXPANSION_BOARDS[i - 50]
 		var b: Dictionary = src.duplicate(true)
-		if i >= legacy_n:
+		if i >= legacy_n and i < 50:
 			var lap: String = "II" if i < legacy_n + 20 else "III"
 			b["name"] = "%s %s" % [str(src.get("name", "Board")), lap]
-		# 60s on board 1 ramping to 90s on board 50.
+		# 60s on board 1 ramping to 90s on board 100.
 		var run_t: int = int(round(60.0 + 30.0 * float(i) / float(TOTAL_BOARDS - 1)))
 		var spd: float = float(src.get("speed", 12.0))
-		if i >= legacy_n:
+		if i >= legacy_n and i < 50:
 			spd += 0.08 * float(i - legacy_n + 1)
+		elif i >= 50:
+			spd += 0.04 * float(i - 50)
 		b["speed"] = spd
 		b["length"] = int(round(float(run_t) * spd / ACT_AVG_INV))
 		b["run_time"] = run_t
 		b["par_time"] = float(run_t)
-		var diff: float = 1.0 + 0.015 * float(maxi(0, i - 20))
+		var diff: float = 1.0 + 0.012 * float(maxi(0, i - 20))
 		_retune_objective(b, run_t, diff)
 		_all.append(b)
 
