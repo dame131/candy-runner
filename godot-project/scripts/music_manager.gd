@@ -118,7 +118,7 @@ func _midi_to_freq(midi: int) -> float:
 
 ## ---- SFX (short generated blips, cached) ----
 
-func play_sfx(kind: String) -> void:
+func play_sfx(kind: String, pitch: float = 1.0) -> void:
 	if Save.muted:
 		return
 	var stream: AudioStreamWAV = _sfx_cache.get(kind, null)
@@ -128,11 +128,23 @@ func play_sfx(kind: String) -> void:
 	for p in _sfx_players:
 		if not p.playing:
 			p.stream = stream
+			p.pitch_scale = pitch
 			p.volume_db = -6.0
 			p.play()
 			return
 	_sfx_players[0].stream = stream
+	_sfx_players[0].pitch_scale = pitch
 	_sfx_players[0].play()
+
+
+## Pickup blip that climbs a pentatonic scale as the streak grows (resets at streak 0).
+const PICKUP_SEMITONES: Array = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26]
+
+
+func play_pickup(streak: int, big: bool = false) -> void:
+	var idx: int = clampi(streak - 1, 0, PICKUP_SEMITONES.size() - 1)
+	var pitch: float = pow(2.0, float(PICKUP_SEMITONES[idx]) / 12.0)
+	play_sfx("bigpop" if big else "pop", pitch)
 
 
 func _make_sfx(kind: String) -> AudioStreamWAV:

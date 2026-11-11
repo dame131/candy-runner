@@ -2,7 +2,7 @@ class_name Obstacle
 extends Node3D
 ## One generic obstacle. The track builder spawns one per hazard and the
 ## game asks check_player() every physics frame.
-## check_player returns: "none", "fall", "hit", "slow", "wind_left", "wind_right".
+## Upgraded with 3D studio candy shaders, ground contact shadows, and 3D detail.
 
 var kind: String = "hole"
 var lane: int = 0
@@ -36,6 +36,7 @@ var _wind_dir: int = 1
 var _open_lane: int = 0
 var _hole_rows: int = 1
 var _ball: MeshInstance3D = null
+var _shadow: MeshInstance3D = null
 
 
 func setup(p_kind: String, board: Dictionary, p_lane: int, data: Dictionary = {}) -> void:
@@ -55,7 +56,7 @@ func setup(p_kind: String, board: Dictionary, p_lane: int, data: Dictionary = {}
 		"rolling_ball":
 			_build_rolling_ball(Color.html("#ff2e4d"), Color.html("#7ed957"), 0.62)
 		"rolling_pit":
-			_build_rolling_ball(Color.html("#5e0a1a"), Color.html("#7a1030"), 0.45)
+			_build_rolling_ball(Color.html("#5e0a1a"), Color.html("#7a1030"), 0.48)
 		"pinwheel":
 			_build_pinwheel(board)
 		"sticky_patch":
@@ -90,15 +91,8 @@ func current_lane_x() -> float:
 	return float(lane) * 2.2
 
 
-func _mat(c: Color, rough: float = 0.4, glow: bool = false) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = c
-	m.roughness = rough
-	if glow:
-		m.emission_enabled = true
-		m.emission = c
-		m.emission_energy_multiplier = 0.5
-	return m
+func _mat(c: Color, rough: float = 0.16, glow: bool = false) -> ShaderMaterial:
+	return CandyMaterials.mat("#" + c.to_html(false), rough, glow, false, 0.42)
 
 
 func _sphere(parent: Node3D, pos: Vector3, r: float, mat: Material) -> MeshInstance3D:
@@ -138,7 +132,6 @@ func _cyl(parent: Node3D, pos: Vector3, r_top: float, r_bot: float, h: float, ma
 
 
 func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, n: Vector3) -> void:
-	# One flat-shaded triangle with an explicit normal.
 	st.set_normal(n)
 	st.add_vertex(a)
 	st.set_normal(n)
@@ -148,10 +141,6 @@ func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, n: Vector3) -> vo
 
 
 func _star_prism(parent: Node3D, pos: Vector3, outer_r: float, inner_r: float, thick: float, mat: Material) -> MeshInstance3D:
-	# A proper 5-point star, extruded flat — the blueberry's crown calyx.
-	# One point faces +Z (toward the chase camera). Culling is disabled
-	# on the material so winding never hides a face; normals are set
-	# explicitly per face for flat shading.
 	var pts: Array = []
 	for k in range(10):
 		var a: float = PI * 0.5 + float(k) * PI / 5.0
@@ -169,10 +158,8 @@ func _star_prism(parent: Node3D, pos: Vector3, outer_r: float, inner_r: float, t
 		var t1 := Vector3(p1.x, half, p1.z)
 		var b0 := Vector3(p0.x, -half, p0.z)
 		var b1 := Vector3(p1.x, -half, p1.z)
-		# top face (+Y) and bottom face (-Y)
 		_tri(st, top_c, t1, t0, Vector3(0, 1, 0))
 		_tri(st, bot_c, b0, b1, Vector3(0, -1, 0))
-		# side quad, outward normal (away from the star center)
 		var e: Vector3 = p1 - p0
 		var n := Vector3(e.z, 0, -e.x).normalized()
 		var mid: Vector3 = (p0 + p1) * 0.5
@@ -187,8 +174,6 @@ func _star_prism(parent: Node3D, pos: Vector3, outer_r: float, inner_r: float, t
 	parent.add_child(mi)
 	return mi
 
-
-# --- Visual builders ---
 
 const GUMMY_BEAR: PackedScene = preload("res://models/gummy_bear.glb")
 
@@ -206,24 +191,36 @@ func _apply_overrides(node: Node, overrides: Dictionary) -> void:
 		_apply_overrides(c, overrides)
 
 
-func _build_gummy_bear(board: Dictionary) -> void:
+func _build_gummy_bear(_board: Dictionary) -> void:
 	var colors: Array = [Color.html("#7ed957"), Color.html("#ff8a00"), Color.html("#ffd23f"), Color.html("#ff5c8a")]
 	var c: Color = colors[randi() % colors.size()]
 	var bear: Node3D = GUMMY_BEAR.instantiate()
+	bear.rotation.y = PI
 	add_child(bear)
-	_apply_overrides(bear, {"Gummy": _mat(c, 0.12)})
+	_apply_overrides(bear, {
+		"Gummy": _mat(c, 0.08),
+		"Belly": _mat(Color.html("#ffffff"), 0.16),
+	})
+	add_child(CandyMaterials.make_drop_shadow(0.65, 0.48))
 
 
-func _build_rolling_ball(body_c: Color, top_c: Color, r: float) -> void:
-	_ball = _sphere(self, Vector3(0, r, 0), r, _mat(body_c, 0.3))
-	# leafy top
-	_cyl(self, Vector3(0, r * 2.0 + 0.05, 0), 0.02, 0.16, 0.18, _mat(top_c))
-	_sphere(self, Vector3(0.14, r * 2.0, 0), 0.12, _mat(top_c))
-	_sphere(self, Vector3(-0.14, r * 2.0, 0), 0.12, _mat(top_c))
+func _build_rolling_ball(_body_c: Color, _top_c: Color, r: float) -> void:
+	var truf_r: float = maxf(r, 0.74)
+	var truf_mat := CandyMaterials.get_truffle_material()
+	_ball = _sphere(self, Vector3(0, truf_r, 0), truf_r, truf_mat)
+	# Organic swirled chocolate truffle ribs around the sphere
+	for i in range(6):
+		var ang: float = float(i) * PI / 3.0
+		var lobe := _sphere(_ball, Vector3(cos(ang) * truf_r * 0.22, 0.0, sin(ang) * truf_r * 0.22), truf_r * 0.84, truf_mat)
+		lobe.scale = Vector3(0.88, 1.04, 0.88)
+		lobe.rotation = Vector3(0.25, ang, 0.20)
+	_shadow = CandyMaterials.make_drop_shadow(truf_r * 1.35, 0.58)
+	add_child(_shadow)
 
 
-func _build_pinwheel(board: Dictionary) -> void:
-	_cyl(self, Vector3(0, 0.7, 0), 0.06, 0.06, 1.4, _mat(Color.html("#ffffff")))
+func _build_pinwheel(_board: Dictionary) -> void:
+	_cyl(self, Vector3(0, 0.7, 0), 0.08, 0.10, 1.4, _mat(Color.html("#ffffff"), 0.15))
+	add_child(CandyMaterials.make_drop_shadow(0.55, 0.42))
 	var pivot := Node3D.new()
 	pivot.position = Vector3(0, 1.45, 0)
 	add_child(pivot)
@@ -232,210 +229,183 @@ func _build_pinwheel(board: Dictionary) -> void:
 	for i in range(4):
 		var blade := MeshInstance3D.new()
 		var b := BoxMesh.new()
-		b.size = Vector3(0.12, 0.85, 0.04)
+		b.size = Vector3(0.16, 0.88, 0.07)
 		blade.mesh = b
 		blade.position = Vector3(0, 0.45, 0)
-		blade.material_override = _mat(cols[i])
+		blade.material_override = _mat(cols[i], 0.12, i % 2 == 0)
 		var holder := Node3D.new()
 		holder.rotation.z = float(i) * PI * 0.5
 		holder.add_child(blade)
 		pivot.add_child(holder)
+	_sphere(pivot, Vector3(0, 0, 0.06), 0.16, _mat(Color.html("#ffd23f"), 0.10, true))
 
 
-func _build_sticky_patch(board: Dictionary) -> void:
-	# Deep dark caramel puddle — the old orange disc (#e07b00) was
-	# nearly invisible on board 7's yellow tiles. Dark brown reads
-	# as a sticky puddle from the chase camera.
+func _build_sticky_patch(_board: Dictionary) -> void:
 	var disc := MeshInstance3D.new()
 	var c := CylinderMesh.new()
 	c.top_radius = 1.1
 	c.bottom_radius = 1.1
-	c.height = 0.08
+	c.height = 0.09
 	disc.mesh = c
-	disc.position = Vector3(0, 0.04, 0)
-	var m := StandardMaterial3D.new()
-	m.albedo_color = Color.html("#6e2f00")
-	m.roughness = 0.05
-	m.metallic = 0.2
-	disc.material_override = m
+	disc.position = Vector3(0, 0.045, 0)
+	disc.material_override = _mat(Color.html("#6e2f00"), 0.05)
 	add_child(disc)
-	# darker rim ring so the puddle edge reads on any tile color
 	var rim := MeshInstance3D.new()
 	var tm := TorusMesh.new()
-	tm.inner_radius = 1.05
-	tm.outer_radius = 1.25
+	tm.inner_radius = 1.02
+	tm.outer_radius = 1.26
 	rim.mesh = tm
-	rim.position = Vector3(0, 0.05, 0)
-	rim.material_override = _mat(Color.html("#3a1c05"), 0.1)
+	rim.position = Vector3(0, 0.06, 0)
+	rim.material_override = _mat(Color.html("#ffb300"), 0.08, true)
 	add_child(rim)
-	# glossy golden bubbles on the caramel
-	_sphere(self, Vector3(0.4, 0.1, 0.3), 0.22, _mat(Color.html("#ffd23f"), 0.1))
-	_sphere(self, Vector3(-0.5, 0.1, -0.2), 0.18, _mat(Color.html("#ffd23f"), 0.1))
+	_sphere(self, Vector3(0.4, 0.12, 0.3), 0.22, _mat(Color.html("#ffd23f"), 0.06, true))
+	_sphere(self, Vector3(-0.5, 0.12, -0.2), 0.18, _mat(Color.html("#ffd23f"), 0.06, true))
 
 
 func _build_bubble() -> void:
-	# A big bubblegum bubble. The old pale pink (1.0,0.6,0.9,0.45)
-	# read as a white blob; deeper pink + more opaque reads as gum.
 	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(1.0, 0.22, 0.72, 0.7)
+	m.albedo_color = Color(1.0, 0.22, 0.72, 0.72)
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.roughness = 0.05
-	_sphere(self, Vector3(0, 1.6, 0), 0.7, m)
-	_sphere(self, Vector3(-0.2, 1.8, -0.5), 0.16, _mat(Color.html("#ffffff")))
+	m.roughness = 0.04
+	m.metallic = 0.25
+	m.emission_enabled = true
+	m.emission = Color.html("#ff5ce1")
+	m.emission_energy_multiplier = 0.25
+	_sphere(self, Vector3(0, 1.6, 0), 0.72, m)
+	_sphere(self, Vector3(-0.22, 1.82, 0.48), 0.18, _mat(Color.html("#ffffff"), 0.05, true))
+	add_child(CandyMaterials.make_drop_shadow(0.68, 0.35))
 
 
-func _build_whip(board: Dictionary) -> void:
-	# pivot post at the left track edge
-	_cyl(self, Vector3(-3.6, 0.6, 0), 0.12, 0.12, 1.2, _mat(Color.html("#3d0a33")))
+func _build_whip(_board: Dictionary) -> void:
+	_cyl(self, Vector3(-3.6, 0.6, 0), 0.16, 0.18, 1.25, _mat(Color.html("#ff2fb3"), 0.15, true))
 	_arm_pivot = Node3D.new()
 	_arm_pivot.position = Vector3(-3.6, 0.8, 0)
 	add_child(_arm_pivot)
 	var arm := MeshInstance3D.new()
 	var c := CylinderMesh.new()
-	c.top_radius = 0.16
-	c.bottom_radius = 0.16
+	c.top_radius = 0.17
+	c.bottom_radius = 0.17
 	c.height = 5.0
 	arm.mesh = c
 	arm.rotation.z = PI * 0.5
 	arm.position = Vector3(2.5, 0, 0)
-	arm.material_override = _mat(Color.html("#2a0a2e"), 0.3)
+	arm.material_override = _mat(Color.html("#3d0a4e"), 0.14)
 	_arm_pivot.add_child(arm)
-	# pink tip
 	var tip := MeshInstance3D.new()
 	var s := SphereMesh.new()
-	s.radius = 0.2
-	s.height = 0.4
+	s.radius = 0.24
+	s.height = 0.48
 	tip.mesh = s
 	tip.position = Vector3(5.0, 0, 0)
-	tip.material_override = _mat(Color.html("#ff5ce1"), 0.3)
+	tip.material_override = _mat(Color.html("#ff5ce1"), 0.08, true)
 	_arm_pivot.add_child(tip)
 
 
-func _build_rising_block(board: Dictionary) -> void:
-	_block = _box(self, Vector3(0, -1.3, 0), Vector3(1.9, 1.3, 1.3), _mat(Color.html("#8a5a2a"), 0.35))
-	# golden top
-	_box(_block, Vector3(0, 0.66, 0), Vector3(1.7, 0.08, 1.1), _mat(Color.html("#ffd23f"), 0.3))
+func _build_rising_block(_board: Dictionary) -> void:
+	_block = _box(self, Vector3(0, -1.3, 0), Vector3(1.9, 1.3, 1.3), _mat(Color.html("#8a5a2a"), 0.20))
+	_box(_block, Vector3(0, 0.66, 0), Vector3(1.75, 0.12, 1.15), _mat(Color.html("#ffd23f"), 0.12, true))
+	_box(_block, Vector3(0, 0.0, 0.66), Vector3(1.6, 0.9, 0.06), _mat(Color.html("#c68a3a"), 0.22))
 
 
-func _build_bouncing_bean(board: Dictionary) -> void:
+func _build_bouncing_bean(_board: Dictionary) -> void:
 	var cols: Array = [Color.html("#ff5c8a"), Color.html("#7ed957"), Color.html("#ffd23f"), Color.html("#b967ff"), Color.html("#ff8a00")]
 	var c: Color = cols[randi() % cols.size()]
 	var cap := MeshInstance3D.new()
 	var cm := CapsuleMesh.new()
-	cm.radius = 0.42
-	cm.height = 1.1
+	cm.radius = 0.44
+	cm.height = 1.15
 	cap.mesh = cm
-	cap.material_override = _mat(c, 0.2)
+	cap.material_override = _mat(c, 0.08)
 	add_child(cap)
 	_block = cap
+	_shadow = CandyMaterials.make_drop_shadow(0.58, 0.45)
+	add_child(_shadow)
 
 
 func _build_wind_gust() -> void:
 	for i in range(3):
 		var ring := MeshInstance3D.new()
 		var tm := TorusMesh.new()
-		tm.inner_radius = 0.55
-		tm.outer_radius = 0.7
+		tm.inner_radius = 0.55 + float(i) * 0.12
+		tm.outer_radius = tm.inner_radius + 0.16
 		ring.mesh = tm
 		ring.position = Vector3(0, 0.9 + float(i) * 0.5, float(i) * 0.7 - 0.7)
-		var m := StandardMaterial3D.new()
-		m.albedo_color = Color(1, 1, 1, 0.5)
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		ring.material_override = m
+		ring.material_override = _mat(Color.html("#fff0f8"), 0.08, true)
 		add_child(ring)
 		_block = ring
 
 
-func _build_falling_chunk(board: Dictionary) -> void:
-	# Milk-chocolate chunk with a bright gold top. The old very dark
-	# brown (#3a1c05) was camouflaged against board 15's dark tiles —
-	# the chunk was invisible while falling and after landing.
-	_chunk = _box(self, Vector3(0, 7.0, 0), Vector3(1.4, 1.1, 1.4), _mat(Color.html("#7a4a22"), 0.5))
-	_box(_chunk, Vector3(0, 0.56, 0), Vector3(1.2, 0.1, 1.2), _mat(Color.html("#ffd23f"), 0.4))
+func _build_falling_chunk(_board: Dictionary) -> void:
+	_chunk = _box(self, Vector3(0, 7.0, 0), Vector3(1.45, 1.15, 1.45), _mat(Color.html("#7a4a22"), 0.22))
+	_box(_chunk, Vector3(0, 0.58, 0), Vector3(1.28, 0.14, 1.28), _mat(Color.html("#ffd23f"), 0.12, true))
+	_shadow = CandyMaterials.make_drop_shadow(0.85, 0.50)
+	add_child(_shadow)
 
 
-func _build_bouncing_drop(board: Dictionary) -> void:
-	_ball = _sphere(self, Vector3(0, 0.55, 0), 0.55, _mat(Color.html("#ffe14d"), 0.25))
-	_sphere(self, Vector3(0, 1.15, 0), 0.14, _mat(Color.html("#7ed957")))
+func _build_bouncing_drop(_board: Dictionary) -> void:
+	_ball = _sphere(self, Vector3(0, 0.55, 0), 0.56, _mat(Color.html("#ffe14d"), 0.10, true))
+	_sphere(_ball, Vector3(0, 0.58, 0), 0.15, _mat(Color.html("#7ed957"), 0.12))
+	_shadow = CandyMaterials.make_drop_shadow(0.60, 0.45)
+	add_child(_shadow)
 
 
-func _build_thorn_bush(board: Dictionary) -> void:
-	var bush := _mat(Color.html("#8a1a3a"), 0.5)
-	_sphere(self, Vector3(0, 0.6, 0), 0.62, bush)
-	_sphere(self, Vector3(-0.5, 0.4, 0.2), 0.4, bush)
-	_sphere(self, Vector3(0.5, 0.4, -0.2), 0.4, bush)
-	# thorns: small cones pointing out
+func _build_thorn_bush(_board: Dictionary) -> void:
+	var bush := _mat(Color.html("#8a1a3a"), 0.24)
+	_sphere(self, Vector3(0, 0.6, 0), 0.64, bush)
+	_sphere(self, Vector3(-0.5, 0.4, 0.2), 0.42, bush)
+	_sphere(self, Vector3(0.5, 0.4, -0.2), 0.42, bush)
 	for i in range(6):
 		var ang: float = TAU * float(i) / 6.0
 		var thorn := MeshInstance3D.new()
 		var c := CylinderMesh.new()
 		c.top_radius = 0.0
-		c.bottom_radius = 0.09
-		c.height = 0.4
+		c.bottom_radius = 0.10
+		c.height = 0.42
 		thorn.mesh = c
 		thorn.position = Vector3(cos(ang) * 0.75, 0.9, sin(ang) * 0.75)
 		thorn.rotation = Vector3(sin(ang) * 0.7, 0, -cos(ang) * 0.7)
-		thorn.material_override = _mat(Color.html("#ff2e4d"), 0.4)
+		thorn.material_override = _mat(Color.html("#ff2e4d"), 0.12, true)
 		add_child(thorn)
-	# raspberries on top
-	_sphere(self, Vector3(0, 1.25, 0), 0.18, _mat(Color.html("#ff2e4d"), 0.3))
-	_sphere(self, Vector3(-0.4, 1.05, 0.2), 0.14, _mat(Color.html("#ff2e4d"), 0.3))
+	_sphere(self, Vector3(0, 1.25, 0), 0.20, _mat(Color.html("#ff2e4d"), 0.10, true))
+	_sphere(self, Vector3(-0.4, 1.05, 0.2), 0.15, _mat(Color.html("#ff2e4d"), 0.10, true))
+	add_child(CandyMaterials.make_drop_shadow(0.85, 0.48))
 
 
-func _build_gate(board: Dictionary) -> void:
-	# two candy-cane poles
-	_cyl(self, Vector3(-3.4, 0.9, 0), 0.14, 0.14, 1.8, _mat(Color.html("#ff2e4d")))
-	_cyl(self, Vector3(3.4, 0.9, 0), 0.14, 0.14, 1.8, _mat(Color.html("#ff2e4d")))
-	# striped bar that slides down when open
-	_gate_bar = _box(self, Vector3(0, 0.7, 0), Vector3(6.6, 0.35, 0.3), _mat(Color.html("#ffffff")))
+func _build_gate(_board: Dictionary) -> void:
+	_cyl(self, Vector3(-3.4, 0.9, 0), 0.16, 0.18, 1.85, _mat(Color.html("#ff2e4d"), 0.12))
+	_cyl(self, Vector3(3.4, 0.9, 0), 0.16, 0.18, 1.85, _mat(Color.html("#ff2e4d"), 0.12))
+	_gate_bar = _box(self, Vector3(0, 0.7, 0), Vector3(6.6, 0.36, 0.32), _mat(Color.html("#ffffff"), 0.14))
 	for i in range(5):
-		_box(_gate_bar, Vector3(-2.6 + float(i) * 1.3, 0, 0), Vector3(0.55, 0.36, 0.31), _mat(Color.html("#ff2e4d")))
+		_box(_gate_bar, Vector3(-2.6 + float(i) * 1.3, 0, 0), Vector3(0.55, 0.38, 0.34), _mat(Color.html("#ff2e4d"), 0.12, true))
 
 
 func _build_blueberry_roller() -> void:
-	# Giant glossy blueberry rolling down the track at Dijah.
-	# Deep blueberry purple (not bright blue) with a star-shaped crown
-	# calyx on top, like a real blueberry.
-	# Round 7: scaled up 1.3x (radius 0.97, top 1.94) so the rollers
-	# dominate the track like the mockup's giant spheres — round 6's
-	# 0.75 ball read as a plain purple ball at game distance.
-	_ball = _sphere(self, Vector3(0, 0.97, 0), 0.97, _mat(Color.html("#3a1a6e"), 0.12))
-	# The ball SPINS in _process (rotation.x -= delta * 3.0), so the
-	# crown and highlight must NOT be children of the ball — they
-	# would roll under it and vanish. They are children of the
-	# obstacle itself, fixed at the ball's top, so the crown stays on
-	# top and reads as a crown from the chase camera at all times.
-	# lighter purple highlight bump so it reads round and glossy
-	_sphere(self, Vector3(-0.33, 1.37, 0.59), 0.29, _mat(Color.html("#7b5cd6"), 0.15))
-	# star-shaped crown: a proper 5-point star prism in bright glossy
-	# purple-pink (the old dark box petals read as a grey hexagon
-	# from behind). Sits just proud of the ball's top surface.
-	# Round 7: scaled with the ball (outer 0.66) so it reads at game
-	# distance — round 6's 0.51 star was still ~30-40 px.
-	var crown_mat: StandardMaterial3D = _mat(Color.html("#c44dff"), 0.15, true)
+	_ball = _sphere(self, Vector3(0, 0.97, 0), 0.97, _mat(Color.html("#3a1a6e"), 0.08))
+	_sphere(self, Vector3(-0.33, 1.37, 0.59), 0.29, _mat(Color.html("#8c6eff"), 0.08, true))
+	var crown_mat := StandardMaterial3D.new()
+	crown_mat.albedo_color = Color.html("#c44dff")
+	crown_mat.roughness = 0.12
+	crown_mat.emission_enabled = true
+	crown_mat.emission = Color.html("#c44dff")
+	crown_mat.emission_energy_multiplier = 0.55
 	crown_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_star_prism(self, Vector3(0, 1.88, 0), 0.66, 0.29, 0.18, crown_mat)
-	# center dimple on top of the star
-	_sphere(self, Vector3(0, 1.93, 0), 0.13, _mat(Color.html("#1a0830"), 0.3))
+	_sphere(self, Vector3(0, 1.93, 0), 0.13, _mat(Color.html("#1a0830"), 0.20))
+	add_child(CandyMaterials.make_drop_shadow(1.05, 0.52))
 
 
-func _build_honeycomb_wall(board: Dictionary) -> void:
-	var gold := _mat(Color.html("#ffb300"), 0.35)
-	var dark := _mat(Color.html("#8a5a00"), 0.4)
-	# wall covers the two lanes that are NOT the open lane
+func _build_honeycomb_wall(_board: Dictionary) -> void:
+	var gold := _mat(Color.html("#ffb300"), 0.16)
+	var dark := _mat(Color.html("#7a4400"), 0.24)
 	for lane_i in [-1, 0, 1]:
 		if lane_i == _open_lane:
 			continue
 		var x: float = float(lane_i) * 2.2
-		_box(self, Vector3(x, 0.8, 0), Vector3(2.1, 1.6, 0.5), gold)
-		# honeycomb cells: small cylinders on the NEAR face (+z, toward
-		# the chase camera). The old z=-0.28 put them on the far face,
-		# hidden behind the box — the wall read as flat yellow panels.
+		_box(self, Vector3(x, 0.8, 0), Vector3(2.1, 1.6, 0.52), gold)
 		for cy in [-0.4, 0.3]:
 			for cx in [-0.6, 0.0, 0.6]:
-				_cyl(self, Vector3(x + cx, 0.8 + cy, 0.28), 0.26, 0.26, 0.06, dark)
-	# golden frame on top
-	_box(self, Vector3(0, 1.7, 0), Vector3(6.6, 0.25, 0.5), dark)
+				_cyl(self, Vector3(x + cx, 0.8 + cy, 0.29), 0.26, 0.26, 0.08, dark)
+	_box(self, Vector3(0, 1.7, 0), Vector3(6.6, 0.28, 0.56), dark)
 
 
 # --- Per-frame animation ---
@@ -471,11 +441,18 @@ func update_obstacle(delta: float, player_z: float) -> void:
 			_bean_y = absf(sin(time * 3.5)) * 1.3
 			if _block != null:
 				_block.position.y = _bean_y + 0.55
+			if _shadow != null:
+				var sc: float = clampf(1.0 - _bean_y * 0.35, 0.4, 1.0)
+				_shadow.scale = Vector3(sc, 1.0, sc)
 		"bouncing_drop":
 			_drop_x = sin(time * 2.2) * 2.2
 			_drop_y = absf(sin(time * 4.0)) * 1.1
 			if _ball != null:
 				_ball.position = Vector3(_drop_x, _drop_y + 0.55, 0)
+			if _shadow != null:
+				_shadow.position.x = _drop_x
+				var sc2: float = clampf(1.0 - _drop_y * 0.35, 0.4, 1.0)
+				_shadow.scale = Vector3(sc2, 1.0, sc2)
 		"gate":
 			var gcyc: float = fmod(time, 2.4)
 			_gate_closed = gcyc < 1.2
@@ -497,7 +474,6 @@ func update_obstacle(delta: float, player_z: float) -> void:
 
 
 func _update_sliding_hole(delta: float) -> void:
-	# The hole slides between lanes every 1.4s; tiles toggle with it.
 	var seq: Array = [-1, 0, 1, 0]
 	var idx: int = int(time / 1.4) % seq.size()
 	var target_lane: int = seq[idx]
@@ -512,8 +488,6 @@ func _update_sliding_hole(delta: float) -> void:
 			for t in tiles:
 				t.visible = int(lane_key) != target_lane
 
-
-# --- Collision query (player position in GLOBAL space) ---
 
 func check_player(player_pos: Vector3, player_y: float) -> String:
 	if consumed:
@@ -544,10 +518,6 @@ func check_player(player_pos: Vector3, player_y: float) -> String:
 			if absf(dz) < 0.85 and absf(px - float(lane) * 2.2) < 0.85 and player_y < 0.7:
 				return "hit"
 		"blueberry_roller":
-			# Round 7: ball is 1.3x bigger (radius 0.97), so the hitbox
-			# widens to match the visual and the jump clearance rises
-			# to 1.2 — still well under the ~2.05 jump apex, so the
-			# rollers stay jumpable.
 			if absf(dz) < 1.0 and absf(px - float(lane) * 2.2) < 1.0 and player_y < 1.2:
 				return "hit"
 		"pinwheel":
