@@ -52,6 +52,7 @@ var _last_blueberry: String = ""
 func _ready() -> void:
 	_player = AudioStreamPlayer.new()
 	_player.bus = "Master"
+	_player.volume_db = 2.5 # Crisp, clear voice presence above background tracks
 	add_child(_player)
 
 
@@ -88,10 +89,20 @@ func play_blueberry() -> void:
 	_play(key, false)
 
 
+func _is_muted() -> bool:
+	var loop = Engine.get_main_loop()
+	if loop and loop is SceneTree:
+		var root = (loop as SceneTree).root
+		if root and root.has_node("Save"):
+			return bool(root.get_node("Save").get("muted"))
+	return false
+
+
 func _play(event: String, is_event: bool) -> void:
-	_playing_event = is_event and not Save.muted
+	var muted: bool = _is_muted()
+	_playing_event = is_event and not muted
 	_last_line_time = _time_alive
-	if Save.muted:
+	if muted:
 		return
 	var clip: AudioStream = CLIPS.get(event, GENERAL_CLIPS.get(event, BLUEBERRY_CLIPS.get(event, null)))
 	if clip == null:

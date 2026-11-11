@@ -30,6 +30,8 @@ var abilities_equipped: Array = []
 
 var muted: bool = false
 var total_runs: int = 0
+var endless_high_score: int = 0
+var endless_best_distance: int = 0
 
 
 func _ready() -> void:
@@ -65,6 +67,8 @@ func load_game() -> void:
 	abilities_equipped = data.get("abilities_equipped", [])
 	muted = bool(data.get("muted", false))
 	total_runs = int(data.get("total_runs", 0))
+	endless_high_score = int(data.get("endless_high_score", 0))
+	endless_best_distance = int(data.get("endless_best_distance", 0))
 	for arr in [outfits_owned, hair_owned, top_owned, bottom_owned, shoe_owned]:
 		if not arr.has(0):
 			arr.append(0)
@@ -91,6 +95,8 @@ func save_game() -> void:
 		"abilities_equipped": abilities_equipped,
 		"muted": muted,
 		"total_runs": total_runs,
+		"endless_high_score": endless_high_score,
+		"endless_best_distance": endless_best_distance,
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f == null:
@@ -132,8 +138,21 @@ func record_run(board_index: int, score: int, stars_earned: int, won: bool, rati
 	if score > best_score(board_index):
 		best[str(board_index)] = score
 		is_new_best = true
-	if won and board_index + 1 < Boards.board_count() and board_index + 1 > unlocked:
+	if won and board_index + 1 < BoardData.TOTAL_BOARDS and board_index + 1 > unlocked:
 		unlocked = board_index + 1
+	save_game()
+	return is_new_best
+
+
+func record_endless_run(score: int, dist: int, stars_earned: int) -> bool:
+	total_runs += 1
+	stars_total += stars_earned
+	var is_new_best := false
+	if score > endless_high_score:
+		endless_high_score = score
+		is_new_best = true
+	if dist > endless_best_distance:
+		endless_best_distance = dist
 	save_game()
 	return is_new_best
 
@@ -147,7 +166,7 @@ func owns_outfit(index: int) -> bool:
 
 
 func buy_outfit(index: int) -> bool:
-	var outfit: Dictionary = Boards.OUTFITS[index]
+	var outfit: Dictionary = BoardData.OUTFITS[index]
 	var cost: int = int(outfit.get("cost", 0))
 	if owns_outfit(index) or stars_total < cost:
 		return false
@@ -178,10 +197,10 @@ func equip_outfit(index: int) -> bool:
 
 
 func get_current_look() -> Dictionary:
-	var h: Dictionary = Boards.HAIR_ITEMS[clampi(hair_equipped, 0, Boards.HAIR_ITEMS.size() - 1)]
-	var t: Dictionary = Boards.TOP_ITEMS[clampi(top_equipped, 0, Boards.TOP_ITEMS.size() - 1)]
-	var b: Dictionary = Boards.BOTTOM_ITEMS[clampi(bottom_equipped, 0, Boards.BOTTOM_ITEMS.size() - 1)]
-	var s: Dictionary = Boards.SHOE_ITEMS[clampi(shoe_equipped, 0, Boards.SHOE_ITEMS.size() - 1)]
+	var h: Dictionary = BoardData.HAIR_ITEMS[clampi(hair_equipped, 0, BoardData.HAIR_ITEMS.size() - 1)]
+	var t: Dictionary = BoardData.TOP_ITEMS[clampi(top_equipped, 0, BoardData.TOP_ITEMS.size() - 1)]
+	var b: Dictionary = BoardData.BOTTOM_ITEMS[clampi(bottom_equipped, 0, BoardData.BOTTOM_ITEMS.size() - 1)]
+	var s: Dictionary = BoardData.SHOE_ITEMS[clampi(shoe_equipped, 0, BoardData.SHOE_ITEMS.size() - 1)]
 	return {
 		"hair": h.get("color", "#2b160c"),
 		"hair_tint": float(h.get("tint", 0.0)),
@@ -216,10 +235,10 @@ func is_item_equipped(category: String, index: int) -> bool:
 func buy_or_equip_item(category: String, index: int, cost: int = -1) -> bool:
 	if cost < 0:
 		match category:
-			"hair": cost = int(Boards.HAIR_ITEMS[index].get("cost", 0))
-			"top": cost = int(Boards.TOP_ITEMS[index].get("cost", 0))
-			"bottom": cost = int(Boards.BOTTOM_ITEMS[index].get("cost", 0))
-			"shoe", "shoes": cost = int(Boards.SHOE_ITEMS[index].get("cost", 0))
+			"hair": cost = int(BoardData.HAIR_ITEMS[index].get("cost", 0))
+			"top": cost = int(BoardData.TOP_ITEMS[index].get("cost", 0))
+			"bottom": cost = int(BoardData.BOTTOM_ITEMS[index].get("cost", 0))
+			"shoe", "shoes": cost = int(BoardData.SHOE_ITEMS[index].get("cost", 0))
 	if owns_item(category, index):
 		match category:
 			"hair": hair_equipped = index
@@ -259,14 +278,14 @@ func has_ability(id: String) -> bool:
 func buy_or_toggle_ability(id_or_idx: Variant, cost: int = -1) -> bool:
 	var id: String = ""
 	if id_or_idx is int:
-		var ab: Dictionary = Boards.ABILITY_ITEMS[int(id_or_idx)]
+		var ab: Dictionary = BoardData.ABILITY_ITEMS[int(id_or_idx)]
 		id = str(ab.get("id", ""))
 		if cost < 0:
 			cost = int(ab.get("cost", 0))
 	else:
 		id = str(id_or_idx)
 		if cost < 0:
-			for ab in Boards.ABILITY_ITEMS:
+			for ab in BoardData.ABILITY_ITEMS:
 				if str(ab.get("id", "")) == id:
 					cost = int(ab.get("cost", 0))
 					break

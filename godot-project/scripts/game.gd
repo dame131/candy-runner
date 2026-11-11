@@ -30,6 +30,9 @@ var target_x: float = 0.0
 var vel_y: float = 0.0
 var player_y: float = 0.0
 var grounded: bool = true
+var is_sliding: bool = false
+var slide_timer: float = 0.0
+const SLIDE_DURATION: float = 0.65
 var base_speed: float = 9.0
 var speed: float = 9.0
 var wind_offset: float = 0.0
@@ -310,6 +313,11 @@ func _physics_process(delta: float) -> void:
 	sour_timer = maxf(0.0, sour_timer - delta)
 	invincible = maxf(0.0, invincible - delta)
 	stumble_timer = maxf(0.0, stumble_timer - delta)
+	if is_sliding:
+		slide_timer -= delta
+		if slide_timer <= 0.0:
+			is_sliding = false
+			character.reset_pose()
 	_jump_buffer = maxf(0.0, _jump_buffer - delta)
 	_fall_grace = maxf(0.0, _fall_grace - delta)
 	_shield_dome.visible = shield_on
@@ -411,7 +419,7 @@ func _physics_process(delta: float) -> void:
 		if not is_instance_valid(ob):
 			continue
 		ob.update_obstacle(delta, player.position.z)
-		var res: String = ob.check_player(player.global_position, player_y)
+		var res: String = ob.check_player(player.global_position, player_y, is_sliding)
 		match res:
 			"fall":
 				fall_seen = true
@@ -668,10 +676,17 @@ func _input(event: InputEvent) -> void:
 		var d := event as InputEventScreenDrag
 		_touch_moved = true
 		var dx: float = d.position.x - _touch_start.x
-		if dx > 90.0:
+		var dy: float = d.position.y - _touch_start.y
+		if dy > 80.0 and absf(dy) > absf(dx):
+			_do_slide()
+			_touch_start = d.position
+		elif dy < -80.0 and absf(dy) > absf(dx):
+			_do_jump()
+			_touch_start = d.position
+		elif dx > 80.0:
 			_do_steer(1)
 			_touch_start = d.position
-		elif dx < -90.0:
+		elif dx < -80.0:
 			_do_steer(-1)
 			_touch_start = d.position
 	elif event is InputEventKey:
@@ -694,6 +709,8 @@ func _input(event: InputEvent) -> void:
 				_do_steer(1)
 			elif k.keycode == KEY_SPACE or k.keycode == KEY_UP or k.keycode == KEY_W:
 				_do_jump()
+			elif k.keycode == KEY_DOWN or k.keycode == KEY_S:
+				_do_slide()
 
 
 func _do_steer(dir: int) -> void:
@@ -725,6 +742,17 @@ func _do_jump() -> void:
 	_spawn_ring_wave(player.global_position + Vector3(0, 0.08, 0), Color.html("#ffd23f"))
 	_spawn_burst(player.global_position + Vector3(0, 0.15, 0), Color.html("#fff59d"), 16)
 	Music.play_sfx("jump")
+
+
+func _do_slide() -> void:
+	if state != State.PLAYING or not grounded:
+		return
+	is_sliding = true
+	slide_timer = SLIDE_DURATION
+	character.set_slide_pose()
+	_spawn_burst(player.global_position + Vector3(0, 0.12, 0.3), Color.html("#ffd23f"), 12)
+	_spawn_ring_wave(player.global_position + Vector3(0, 0.05, 0), Color.html("#ff5c8a"))
+	Music.play_sfx("pop", 0.75)
 
 
 func _on_fall() -> void:
@@ -1166,11 +1194,19 @@ func _game_over() -> void:
 		return
 	state = State.OVER
 	_over_msec = Time.get_ticks_msec()
-	var is_best: bool = Save.record_run(board_index, int(score), stars_collected, false)
-	Music.play_sfx("fall")
-	if is_best:
-		voice.play_line("new_best")
-	hud.show_game_over(int(score), int(distance), stars_collected, Save.best_score(board_index), is_best)
+	var is_best: bool = false
+	if bool(board.get("is_endless", false)):
+		is_best = Save.record_endless_run(int(score), int(distance), stars_collected)
+		Music.play_sfx("fall")
+		if is_best:
+			voice.play_line("new_best")
+		hud.show_game_over(int(score), int(distance), stars_collected, Save.endless_high_score, is_best)
+	else:
+		is_best = Save.record_run(board_index, int(score), stars_collected, false)
+		Music.play_sfx("fall")
+		if is_best:
+			voice.play_line("new_best")
+		hud.show_game_over(int(score), int(distance), stars_collected, Save.best_score(board_index), is_best)
 
 
 func _fail() -> void:

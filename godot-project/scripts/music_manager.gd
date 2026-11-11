@@ -12,6 +12,24 @@ var _sfx_cache: Dictionary = {}
 var _current_board: int = -1
 
 
+func _get_save() -> Node:
+	var loop = Engine.get_main_loop()
+	if loop and loop is SceneTree:
+		var root = (loop as SceneTree).root
+		if root and root.has_node("Save"):
+			return root.get_node("Save")
+	return null
+
+
+func _get_boards() -> Node:
+	var loop = Engine.get_main_loop()
+	if loop and loop is SceneTree:
+		var root = (loop as SceneTree).root
+		if root and root.has_node("Boards"):
+			return root.get_node("Boards")
+	return null
+
+
 func _ready() -> void:
 	_music_player = AudioStreamPlayer.new()
 	_music_player.bus = "Master"
@@ -20,28 +38,35 @@ func _ready() -> void:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
 		_sfx_players.append(p)
-	AudioServer.set_bus_mute(0, Save.muted)
+	var s := _get_save()
+	if s:
+		AudioServer.set_bus_mute(0, bool(s.get("muted")))
 
 
 func set_muted(m: bool) -> void:
-	Save.muted = m
-	Save.save_game()
+	var s := _get_save()
+	if s:
+		s.set("muted", m)
+		if s.has_method("save_game"):
+			s.save_game()
 	AudioServer.set_bus_mute(0, m)
 
 
 func is_muted() -> bool:
-	return Save.muted
+	var s := _get_save()
+	return bool(s.get("muted")) if s else false
 
 
 func play_board(board_index: int) -> void:
 	if board_index == _current_board and _music_player.playing:
 		return
 	_current_board = board_index
-	var board: Dictionary = Boards.get_board(board_index)
+	var b_node := _get_boards()
+	var board: Dictionary = b_node.get_board(board_index) if b_node else {}
 	var m: Dictionary = board.get("music", {})
 	var wav := _make_loop(int(m.get("tempo", 120)), int(m.get("root", 60)), m.get("scale", [0, 2, 4, 7, 9]), int(m.get("wave", 0)), board_index)
 	_music_player.stream = wav
-	_music_player.volume_db = -10.0
+	_music_player.volume_db = -13.5 # Balanced so voice lines remain crystal-clear
 	_music_player.play()
 
 
@@ -119,7 +144,7 @@ func _midi_to_freq(midi: int) -> float:
 ## ---- SFX (short generated blips, cached) ----
 
 func play_sfx(kind: String, pitch: float = 1.0) -> void:
-	if Save.muted:
+	if is_muted():
 		return
 	var stream: AudioStreamWAV = _sfx_cache.get(kind, null)
 	if stream == null:

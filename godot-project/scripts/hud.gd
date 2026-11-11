@@ -201,7 +201,7 @@ void fragment() {
 	_hint_bar.offset_top = -92
 	_hint_bar.offset_bottom = -34
 	root.add_child(_hint_bar)
-	var hint_label := _make_label("◀ ▶ SWIPE: STEER  •  TAP: JUMP  •  [R] INSTANT RETRY", 18, Color.html("#ffffff"))
+	var hint_label := _make_label("◀ ▶ STEER  •  TAP/▲ JUMP  •  ▼/SWIPE-DOWN SLIDE  •  [R] RETRY", 16, Color.html("#ffffff"))
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint_bar.add_child(hint_label)
 

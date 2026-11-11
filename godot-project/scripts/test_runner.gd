@@ -1,0 +1,145 @@
+extends MainLoop
+
+var _ran: bool = false
+
+func _process(_delta: float) -> bool:
+	if _ran:
+		return true
+	_ran = true
+	print("=== STARTING CANDY RUNNER VERIFICATION SUITE ===")
+	var failures: int = 0
+	
+	# Test 1: Boards & Endless Mode
+	var boards_script = load("res://scripts/boards.gd")
+	if boards_script == null:
+		print("[FAIL] Could not load boards.gd")
+		failures += 1
+	else:
+		var b_obj = boards_script.new()
+		var count = b_obj.board_count()
+		print("[TEST 1] Boards count: %d (expected 50)" % count)
+		if count != 50:
+			print("[FAIL] Board count is not 50")
+			failures += 1
+		else:
+			print("[PASS] 50 campaign boards verified")
+		
+		var endless_board = b_obj.get_board(999)
+		if endless_board.get("is_endless") != true or endless_board.get("name") != "Endless Sugar Rush":
+			print("[FAIL] Endless board lookup failed: ", endless_board)
+			failures += 1
+		else:
+			print("[PASS] Endless board verified successfully: %s" % endless_board.get("name"))
+			
+		var act1 = b_obj.act_multiplier(0.1)
+		var act2 = b_obj.act_multiplier(0.5)
+		var act3 = b_obj.act_multiplier(0.85)
+		print("[TEST 1] Speed scaling: Act I = %.2f, Act II = %.2f, Act III = %.2f" % [act1, act2, act3])
+		if act1 != 0.90 or act2 != 1.05 or act3 != 1.22:
+			print("[FAIL] Speed scaling multipliers mismatch")
+			failures += 1
+		else:
+			print("[PASS] 3-Act speed ramp verified")
+		b_obj.free()
+
+	# Test 2: Obstacle Ducking & Slide Hitbox
+	var obs_script = load("res://scripts/obstacle.gd")
+	if obs_script == null:
+		print("[FAIL] Could not load obstacle.gd")
+		failures += 1
+	else:
+		var obs = obs_script.new()
+		obs.kind = "gate"
+		obs.lane = 0
+		obs._gate_closed = true
+		
+		# Gate: Player standing at y=0.0 -> hit
+		var res_stand = obs.check_player(Vector3(0, 0, 0), 0.0, false)
+		# Gate: Player sliding at y=0.0 -> none (slid underneath!)
+		var res_slide = obs.check_player(Vector3(0, 0, 0), 0.0, true)
+		print("[TEST 2] Gate stand hit: %s (expected 'hit'), slide: %s (expected 'none')" % [res_stand, res_slide])
+		if res_stand != "hit" or res_slide != "none":
+			print("[FAIL] Gate ducking hitbox failed")
+			failures += 1
+		else:
+			print("[PASS] Gate slide evasion verified")
+
+		# Whip: Player standing at y=0.0 -> hit when whip overlaps
+		obs.kind = "whip"
+		obs._arm_angle = 0.0
+		var res_whip_stand = obs.check_player(Vector3(-1.0, 0, 0), 0.0, false)
+		var res_whip_slide = obs.check_player(Vector3(-1.0, 0, 0), 0.0, true)
+		print("[TEST 2] Whip stand hit: %s (expected 'hit'), slide: %s (expected 'none')" % [res_whip_stand, res_whip_slide])
+		if res_whip_stand != "hit" or res_whip_slide != "none":
+			print("[FAIL] Whip ducking hitbox failed")
+			failures += 1
+		else:
+			print("[PASS] Whip slide evasion verified")
+
+		# Bubble: Overhead floating bubble at y=1.2
+		obs.kind = "bubble"
+		var res_bubble_stand = obs.check_player(Vector3(0, 0, 0), 1.2, false)
+		var res_bubble_slide = obs.check_player(Vector3(0, 0, 0), 0.0, true)
+		print("[TEST 2] Bubble stand hit: %s (expected 'hit'), slide: %s (expected 'none')" % [res_bubble_stand, res_bubble_slide])
+		if res_bubble_stand != "hit" or res_bubble_slide != "none":
+			print("[FAIL] Bubble ducking hitbox failed")
+			failures += 1
+		else:
+			print("[PASS] Bubble slide evasion verified")
+		obs.free()
+
+	# Test 3: Voice Lines Audio Leveling
+	print("[TEST 3] Loading voice_lines.gd...")
+	var vl_script = load("res://scripts/voice_lines.gd")
+	if vl_script == null:
+		print("[FAIL] Could not load voice_lines.gd")
+		failures += 1
+	else:
+		var vl = vl_script.new()
+		print("[TEST 3] Calling _ready()...")
+		vl._ready()
+		var player_vol = vl._player.volume_db
+		print("[TEST 3] Voice line player volume_db: %.1f dB (expected +2.5 dB)" % player_vol)
+		if absf(player_vol - 2.5) > 0.01:
+			print("[FAIL] Voice line volume is not boosted to +2.5 dB")
+			failures += 1
+		else:
+			print("[PASS] Voice line clear audio leveling verified")
+		vl._player.free()
+		vl.free()
+
+	# Test 4: Music Manager Pentatonic Scale
+	var mm_script = load("res://scripts/music_manager.gd")
+	if mm_script == null:
+		print("[FAIL] Could not load music_manager.gd")
+		failures += 1
+	else:
+		var mm = mm_script.new()
+		print("[TEST 4] Music Manager pentatonic scale notes: %d" % mm.PICKUP_SEMITONES.size())
+		if mm.PICKUP_SEMITONES.size() != 12:
+			print("[FAIL] Pentatonic scale size mismatch")
+			failures += 1
+		else:
+			print("[PASS] Ascending pentatonic scale verified")
+		mm.free()
+
+	# Test 5: Save Manager Endless & Ratings
+	var sm_script = load("res://scripts/save_manager.gd")
+	if sm_script == null:
+		print("[FAIL] Could not load save_manager.gd")
+		failures += 1
+	else:
+		var sm = sm_script.new()
+		sm.endless_high_score = 100
+		sm.endless_best_distance = 500
+		var is_new = sm.record_endless_run(250, 750, 15)
+		print("[TEST 5] Save Manager endless run: new_high=%s, score=%d, dist=%d" % [is_new, sm.endless_high_score, sm.endless_best_distance])
+		if not is_new or sm.endless_high_score != 250 or sm.endless_best_distance != 750:
+			print("[FAIL] Save manager endless persistence logic failed")
+			failures += 1
+		else:
+			print("[PASS] Save manager endless persistence verified")
+		sm.free()
+
+	print("=== VERIFICATION COMPLETE: %d FAILURES ===" % failures)
+	return true

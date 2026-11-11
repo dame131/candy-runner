@@ -27,6 +27,7 @@ var _bob_phase: float = 0.0
 var _lean_z: float = 0.0
 var _squash: Vector3 = Vector3.ONE
 var _is_jumping: bool = false
+var _is_sliding: bool = false
 var _is_showcase: bool = false
 
 
@@ -276,6 +277,18 @@ func trigger_squash(scale_vec: Vector3) -> void:
 
 ## Athletic 3-frame Pixar run-cycle with vertical bounce, hip sway & 3D stride relief!
 func animate_run(delta: float, speed: float) -> void:
+	if _is_sliding:
+		_vfx_time += delta
+		if _trail_root:
+			_trail_root.visible = true
+			for item in _trail_particles:
+				var mi: MeshInstance3D = item["node"]
+				var ph: float = fmod(float(item["phase"]) + _vfx_time * 3.5, 1.0)
+				var side: float = float(item["side"])
+				mi.position = Vector3(side * 0.35 + sin(ph * 12.0) * 0.08, 0.05 + sin(ph * PI) * 0.15, 0.2 + ph * 1.8)
+				var sc: float = (1.0 - ph * 0.75) * 1.3
+				mi.scale = Vector3(sc, sc, sc)
+		return
 	_is_jumping = false
 	_is_showcase = false
 	_bob_phase += delta * speed * 1.15
@@ -355,19 +368,34 @@ func set_air_tilt(t: float) -> void:
 
 func set_jump_pose() -> void:
 	_is_jumping = true
+	_is_sliding = false
 	if _mat and _tex_jump != null:
 		_mat.set_shader_parameter("char_tex", _tex_jump)
 		_mat.set_shader_parameter("run_stride_skew", 0.0)
 
 
+func set_slide_pose() -> void:
+	_is_sliding = true
+	_is_jumping = false
+	if _mat and _tex_back_mid != null:
+		_mat.set_shader_parameter("char_tex", _tex_back_mid)
+		_mat.set_shader_parameter("run_stride_skew", 0.0)
+	if _mesh_inst:
+		_mesh_inst.position.y = 0.48
+		_mesh_inst.rotation.x = -0.55
+		_mesh_inst.scale = Vector3(1.15, 0.58, 1.25)
+
+
 func reset_pose() -> void:
 	_is_jumping = false
+	_is_sliding = false
 	rotation.x = 0.0
 	if _model:
 		_model.rotation = Vector3.ZERO
 	if _mesh_inst:
 		_mesh_inst.rotation = Vector3.ZERO
 		_mesh_inst.position = Vector3(0.0, 0.96, 0.0)
+		_mesh_inst.scale = Vector3.ONE
 	if _mat and _tex_back_l != null:
 		_mat.set_shader_parameter("char_tex", _tex_back_l)
 		_mat.set_shader_parameter("run_stride_skew", 0.0)

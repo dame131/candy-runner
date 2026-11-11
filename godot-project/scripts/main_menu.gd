@@ -143,12 +143,23 @@ func _ready() -> void:
 	bottom_box.add_theme_constant_override("separation", 12)
 	add_child(bottom_box)
 
-	var play_btn := _big_button("• PLAY •\nCANDY MAP", Color.html("#ff7e6b"), Color.html("#ffffff"), Color.html("#fff5fa"), Vector2(420, 82), 26)
+	var play_btn := _big_button("• PLAY •\nCANDY MAP (50 BOARDS)", Color.html("#ff7e6b"), Color.html("#ffffff"), Color.html("#fff5fa"), Vector2(420, 72), 23)
 	play_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	play_btn.pressed.connect(func() -> void: get_tree().change_scene_to_file("res://scenes/roadmap.tscn"))
 	bottom_box.add_child(play_btn)
 
-	var shop_btn := _big_button("OUTFIT & ABILITY STORE", Color.html("#f06292"), Color.html("#ffffff"), Color.html("#fff5fa"), Vector2(380, 56), 22)
+	var endless_label: String = "⚡ ENDLESS RUSH"
+	if Save.endless_high_score > 0:
+		endless_label += " (BEST %d)" % Save.endless_high_score
+	var endless_btn := _big_button(endless_label, Color.html("#ffd23f"), Color.html("#4a1030"), Color.html("#ffffff"), Vector2(380, 52), 21)
+	endless_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	endless_btn.pressed.connect(func() -> void:
+		Boards.selected_board = Boards.ENDLESS_BOARD_INDEX
+		get_tree().change_scene_to_file("res://scenes/game.tscn")
+	)
+	bottom_box.add_child(endless_btn)
+
+	var shop_btn := _big_button("OUTFIT & ABILITY STORE", Color.html("#f06292"), Color.html("#ffffff"), Color.html("#fff5fa"), Vector2(360, 48), 20)
 	shop_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	shop_btn.pressed.connect(func() -> void: get_tree().change_scene_to_file("res://scenes/shop.tscn"))
 	bottom_box.add_child(shop_btn)

@@ -489,7 +489,7 @@ func _update_sliding_hole(delta: float) -> void:
 				t.visible = int(lane_key) != target_lane
 
 
-func check_player(player_pos: Vector3, player_y: float) -> String:
+func check_player(player_pos: Vector3, player_y: float, is_sliding: bool = false) -> String:
 	if consumed:
 		return "none"
 	var lp: Vector3 = to_local(player_pos)
@@ -527,22 +527,31 @@ func check_player(player_pos: Vector3, player_y: float) -> String:
 			if absf(dz) < 1.2 and absf(px - float(lane) * 2.2) < 1.1 and player_y < 0.3:
 				return "slow"
 		"bubble":
-			if absf(dz) < 0.8 and absf(px - float(lane) * 2.2) < 0.9 and player_y > 0.9 and player_y < 2.5:
-				return "hit"
-		"whip":
-			if absf(dz) < 0.7 and player_y < 1.2:
-				var ax: float = -3.6
-				var az: float = 0.0
-				var bx: float = -3.6 + cos(_arm_angle) * 5.0
-				var bz: float = sin(_arm_angle) * 5.0
-				if _dist_point_segment(px, dz, ax, az, bx, bz) < 0.7:
+			if absf(dz) < 0.8 and absf(px - float(lane) * 2.2) < 0.9:
+				if is_sliding and player_y < 0.5:
+					return "none" # Slid cleanly under the floating bubble!
+				if player_y > 0.9 and player_y < 2.5:
 					return "hit"
+		"whip":
+			if absf(dz) < 0.7:
+				if is_sliding and player_y < 0.5:
+					return "none" # Ducked under the spinning licorice whip!
+				if player_y < 1.2:
+					var ax: float = -3.6
+					var az: float = 0.0
+					var bx: float = -3.6 + cos(_arm_angle) * 5.0
+					var bz: float = sin(_arm_angle) * 5.0
+					if _dist_point_segment(px, dz, ax, az, bx, bz) < 0.7:
+						return "hit"
 		"rising_block":
 			if _block_y > -0.2 and absf(dz) < 1.0 and absf(px - float(lane) * 2.2) < 1.0 and player_y < 1.15:
 				return "hit"
 		"bouncing_bean":
-			if absf(dz) < 0.85 and absf(px - float(lane) * 2.2) < 0.9 and player_y < _bean_y + 0.55 and player_y + 1.4 > _bean_y - 0.55:
-				return "hit"
+			if absf(dz) < 0.85 and absf(px - float(lane) * 2.2) < 0.9:
+				if is_sliding and _bean_y > 0.6 and player_y < 0.5:
+					return "none" # Slid cleanly under the bouncing jelly bean!
+				if player_y < _bean_y + 0.55 and player_y + 1.4 > _bean_y - 0.55:
+					return "hit"
 		"wind_gust":
 			if absf(dz) < 1.6 and player_y < 0.5:
 				return "wind_left" if _wind_dir < 0 else "wind_right"
@@ -560,8 +569,11 @@ func check_player(player_pos: Vector3, player_y: float) -> String:
 			if absf(dz) < 0.9 and absf(px - float(lane) * 2.2) < 1.0 and player_y < 1.2:
 				return "hit"
 		"gate":
-			if _gate_closed and absf(dz) < 0.9 and player_y < 1.35:
-				return "hit"
+			if _gate_closed and absf(dz) < 0.9:
+				if is_sliding and player_y < 0.5:
+					return "none" # Slid cleanly under the peppermint gate bar!
+				if player_y < 1.35:
+					return "hit"
 		"honeycomb_wall":
 			if absf(dz) < 0.9 and int(roundf(px / 2.2)) != _open_lane and player_y < 1.5:
 				return "hit"

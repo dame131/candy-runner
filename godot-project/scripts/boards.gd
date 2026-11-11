@@ -349,7 +349,20 @@ func _make_label(o: Dictionary, run_t: int) -> String:
 	return "%s  (%ds run)" % [txt, run_t]
 
 
+const ENDLESS_BOARD_INDEX: int = 999
+const ENDLESS_BOARD: Dictionary = {
+	"name": "Endless Sugar Rush", "look": "rainbow neon",
+	"palette": {"tile": "#b967ff", "tile_dark": "#9e4ae8", "side": "#1e0a3d", "rail_left": "#ff2fb3", "rail_right": "#00e5ff", "rim": "#ffd23f", "syrup": "#12041f", "sea": "#ff2fb3", "sky": "#3d1a6e", "fog": "#5e2a8a", "accent": "#ffd23f", "scenery": "#7b2fbe"},
+	"objective": {"type": "distance", "target": 999999, "label": "Endless Mode - Run for the High Score!"},
+	"obstacle": "mixed", "speed": 12.0, "length": 9999999,
+	"music": {"tempo": 140, "root": 60, "scale": [0, 2, 4, 7, 9], "wave": 1},
+	"is_endless": true,
+}
+
+
 func get_board(index: int) -> Dictionary:
+	if index == ENDLESS_BOARD_INDEX:
+		return ENDLESS_BOARD
 	_ensure_built()
 	if index < 0 or index >= _all.size():
 		return _all[0]
