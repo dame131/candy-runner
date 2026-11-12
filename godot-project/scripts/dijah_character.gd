@@ -377,9 +377,14 @@ func set_air_tilt(t: float) -> void:
 func set_jump_pose() -> void:
 	_is_jumping = true
 	_is_sliding = false
-	if _mat and _tex_jump != null:
-		_mat.set_shader_parameter("char_tex", _tex_jump)
+	# Preserve seamless back running view during leap — no front-facing turnaround image switch!
+	if _mat and _tex_back_mid != null:
+		_mat.set_shader_parameter("char_tex", _tex_back_mid)
 		_mat.set_shader_parameter("run_stride_skew", 0.0)
+	if _mesh_inst:
+		# Athletic 3D jump tuck & elevation
+		_mesh_inst.position.y = 1.04
+		_mesh_inst.scale = Vector3(0.94, 1.12, 0.94)
 
 
 func set_slide_pose() -> void:

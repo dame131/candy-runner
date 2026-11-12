@@ -11,6 +11,8 @@ signal retry_pressed
 signal menu_pressed
 signal next_pressed
 signal mute_pressed
+signal pause_pressed
+signal resume_pressed
 
 var _score_panel: PanelContainer
 var _stars_panel: PanelContainer
@@ -27,6 +29,8 @@ var _message_label: Label
 var _hint_bar: PanelContainer
 var _mute_button: Button
 var _quick_retry_button: Button
+var _pause_button: Button
+var _pause_panel: Control
 var _speed_lines: ColorRect
 var _glow: ColorRect
 var _flash_rect: ColorRect
@@ -48,6 +52,7 @@ var _fever_left: float = 0.0
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 10
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -161,14 +166,29 @@ void fragment() {
 	# --- top-right candy-wrapper pill: BOARD BANNER ---
 	var board_panel := _make_panel(Color.html("#ec5b93"), Color.html("#fff5fa"))
 	board_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	board_panel.offset_left = -238
-	board_panel.offset_right = -14
+	board_panel.offset_left = -254
+	board_panel.offset_right = -84
 	board_panel.offset_top = 14
 	board_panel.offset_bottom = 86
 	root.add_child(board_panel)
-	_board_label = _make_label("BOARD 1\nCANDYLAND", 19, Color.html("#ffffff"), true)
+	_board_label = _make_label("BOARD 1\nCANDYLAND", 17, Color.html("#ffffff"), true)
 	_board_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	board_panel.add_child(_board_label)
+
+	# --- top-right pause button (matching candy arcade theme) ---
+	_pause_button = Button.new()
+	_pause_button.text = "❚❚"
+	_pause_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_pause_button.offset_left = -74
+	_pause_button.offset_top = 14
+	_pause_button.offset_right = -12
+	_pause_button.offset_bottom = 86
+	_pause_button.add_theme_font_size_override("font_size", 28)
+	_pause_button.add_theme_stylebox_override("normal", _btn_style(Color.html("#ec5b93")))
+	_pause_button.add_theme_stylebox_override("pressed", _btn_style(Color.html("#b83068")))
+	_pause_button.add_theme_color_override("font_color", Color.html("#ffffff"))
+	_pause_button.pressed.connect(func() -> void: pause_pressed.emit())
+	root.add_child(_pause_button)
 
 	# --- compact objective pill ---
 	_objective_label = _make_label("", 17, Color.html("#ffffff"), true)
@@ -246,6 +266,68 @@ void fragment() {
 	_overlay_title(_fail_panel, "SO CLOSE!", Color.html("#ffffff"))
 	_fail_stats = _overlay_text(_fail_panel)
 	_overlay_buttons(_fail_panel, "⚡ INSTANT RETRY [R]", "MAP", func() -> void: retry_pressed.emit(), func() -> void: menu_pressed.emit())
+
+	# --- pause overlay panel ---
+	_pause_panel = _make_overlay(root)
+	_overlay_title(_pause_panel, "GAME PAUSED", Color.html("#ffd23f"))
+	var p_desc := _overlay_text(_pause_panel)
+	p_desc.text = "Take a breath, nurse!\nYour shift will be right here when you're ready.\n"
+
+	var p_box: VBoxContainer = _pause_panel.get_meta("box")
+	var p_btn_col := VBoxContainer.new()
+	p_btn_col.alignment = BoxContainer.ALIGNMENT_CENTER
+	p_btn_col.add_theme_constant_override("separation", 12)
+	p_box.add_child(p_btn_col)
+
+	var b_resume := Button.new()
+	b_resume.text = "▶  RESUME GAME"
+	b_resume.custom_minimum_size = Vector2(400, 60)
+	b_resume.add_theme_font_size_override("font_size", 24)
+	b_resume.add_theme_stylebox_override("normal", _btn_style(Color.html("#2eb872")))
+	b_resume.add_theme_stylebox_override("pressed", _btn_style(Color.html("#1e824c")))
+	b_resume.add_theme_color_override("font_color", Color.html("#ffffff"))
+	b_resume.pressed.connect(func() -> void: resume_pressed.emit())
+	p_btn_col.add_child(b_resume)
+
+	var b_retry := Button.new()
+	b_retry.text = "↻  RESTART BOARD [R]"
+	b_retry.custom_minimum_size = Vector2(400, 52)
+	b_retry.add_theme_font_size_override("font_size", 20)
+	b_retry.add_theme_stylebox_override("normal", _btn_style(Color.html("#ff4081")))
+	b_retry.add_theme_stylebox_override("pressed", _btn_style(Color.html("#c2185b")))
+	b_retry.add_theme_color_override("font_color", Color.html("#ffffff"))
+	b_retry.pressed.connect(func() -> void:
+		_pause_panel.visible = false
+		retry_pressed.emit()
+	)
+	p_btn_col.add_child(b_retry)
+
+	var b_map := Button.new()
+	b_map.text = "🗺️  CANDY MAP"
+	b_map.custom_minimum_size = Vector2(400, 52)
+	b_map.add_theme_font_size_override("font_size", 20)
+	b_map.add_theme_stylebox_override("normal", _btn_style(Color.html("#8e44ad")))
+	b_map.add_theme_stylebox_override("pressed", _btn_style(Color.html("#6c3483")))
+	b_map.add_theme_color_override("font_color", Color.html("#ffffff"))
+	b_map.pressed.connect(func() -> void:
+		_pause_panel.visible = false
+		menu_pressed.emit()
+	)
+	p_btn_col.add_child(b_map)
+
+	var b_sound := Button.new()
+	b_sound.text = "🔊 SOUND: ON" if not Music.is_muted() else "🔇 SOUND: MUTED"
+	b_sound.custom_minimum_size = Vector2(400, 48)
+	b_sound.add_theme_font_size_override("font_size", 18)
+	b_sound.add_theme_stylebox_override("normal", _btn_style(Color.html("#3a2405")))
+	b_sound.add_theme_stylebox_override("pressed", _btn_style(Color.html("#5e3a05")))
+	b_sound.add_theme_color_override("font_color", Color.html("#ffffff"))
+	b_sound.pressed.connect(func() -> void:
+		mute_pressed.emit()
+		b_sound.text = "🔊 SOUND: ON" if not Music.is_muted() else "🔇 SOUND: MUTED"
+	)
+	p_btn_col.add_child(b_sound)
+
 	set_mute_icon(not Music.is_muted())
 
 
@@ -521,3 +603,19 @@ func hide_panels() -> void:
 	_game_over_panel.visible = false
 	_win_panel.visible = false
 	_fail_panel.visible = false
+	if _pause_panel != null:
+		_pause_panel.visible = false
+
+
+func show_pause() -> void:
+	if _pause_panel != null:
+		_pause_panel.visible = true
+
+
+func hide_pause() -> void:
+	if _pause_panel != null:
+		_pause_panel.visible = false
+
+
+func is_pause_open() -> bool:
+	return _pause_panel != null and _pause_panel.visible

@@ -56,18 +56,23 @@ func _ready() -> void:
 	add_child(_player)
 
 
-## Event line: always plays (replaces any general line currently playing).
+## Returns whether Dijah is currently speaking.
+func is_speaking() -> bool:
+	return _player != null and _player.playing
+
+
+## Event line: plays if not already speaking (fall/win always interrupt).
 func play_line(event: String) -> void:
 	if not CLIPS.has(event):
 		return
 	_play(event, true)
 
 
-## General line: random pool line for regular star pickups.
+## General line: random pool line for regular star pickups (never interrupts an active joke).
 func play_general() -> void:
-	if _time_alive - _last_line_time < GENERAL_COOLDOWN:
+	if _player != null and _player.playing:
 		return
-	if _playing_event and _player.playing:
+	if _time_alive - _last_line_time < GENERAL_COOLDOWN:
 		return
 	var keys: Array = GENERAL_CLIPS.keys()
 	keys.erase(_last_general)
@@ -76,11 +81,11 @@ func play_general() -> void:
 	_play(key, false)
 
 
-## Blueberry line: random pool line for regular star pickups on board 21 ONLY.
+## Blueberry line: random pool line for regular star pickups on board 21 ONLY (never interrupts an active joke).
 func play_blueberry() -> void:
-	if _time_alive - _last_line_time < GENERAL_COOLDOWN:
+	if _player != null and _player.playing:
 		return
-	if _playing_event and _player.playing:
+	if _time_alive - _last_line_time < GENERAL_COOLDOWN:
 		return
 	var keys: Array = BLUEBERRY_CLIPS.keys()
 	keys.erase(_last_blueberry)
@@ -100,13 +105,19 @@ func _is_muted() -> bool:
 
 func _play(event: String, is_event: bool) -> void:
 	var muted: bool = _is_muted()
-	_playing_event = is_event and not muted
-	_last_line_time = _time_alive
 	if muted:
 		return
+	# CRITICAL: Never cut off or interrupt Dijah while she is speaking / delivering a joke!
+	# The line must finish playing completely. Only game-over ("fall") or level clear ("win") can interrupt.
+	if _player != null and _player.playing:
+		if event != "fall" and event != "win":
+			return
+
 	var clip: AudioStream = CLIPS.get(event, GENERAL_CLIPS.get(event, BLUEBERRY_CLIPS.get(event, null)))
 	if clip == null:
 		return
+	_playing_event = is_event
+	_last_line_time = _time_alive
 	_player.stop()
 	_player.stream = clip
 	_player.play()

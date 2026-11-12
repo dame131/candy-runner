@@ -87,6 +87,7 @@ var _combo_timer: float = 0.0
 const COMBO_MAX_TIME: float = 3.2
 var _hitstop_end_usec: int = 0
 var _speed_pct: int = 100
+var is_game_paused: bool = false
 
 # --- Controls forgiveness ---
 const COYOTE_TIME: float = 0.12      # 120 ms to still jump after the ledge/hole edge
@@ -231,6 +232,8 @@ func _ready() -> void:
 	hud.menu_pressed.connect(_on_menu)
 	hud.next_pressed.connect(_on_next)
 	hud.mute_pressed.connect(_on_mute)
+	hud.pause_pressed.connect(_on_pause)
+	hud.resume_pressed.connect(_on_resume)
 
 	# --- Dijah's voice lines ---
 	voice = VoiceLines.new()
@@ -660,6 +663,19 @@ func _update_hud() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventKey:
+		var k := event as InputEventKey
+		if k.pressed and not k.echo:
+			if k.keycode == KEY_P or k.keycode == KEY_ESCAPE:
+				if is_game_paused:
+					_on_resume()
+				else:
+					_on_pause()
+				get_viewport().set_input_as_handled()
+				return
+	if is_game_paused:
+		return
+
 	if event is InputEventScreenTouch:
 		var t := event as InputEventScreenTouch
 		if t.pressed:
@@ -844,11 +860,13 @@ func _collect_star(s: Star) -> void:
 	if s.kind == "big":
 		_trigger_hitstop(0.035, 0.35)
 		hud.flash_screen(Color.html("#ffd23f"), 0.18)
-		voice.play_line("big_star")
+		if not voice.is_speaking():
+			voice.play_line("big_star")
 	elif s.kind == "rainbow":
 		_trigger_hitstop(0.045, 0.30)
 		hud.flash_screen(Color.html("#ff2fb3"), 0.24)
-		voice.play_line("rainbow_star")
+		if not voice.is_speaking():
+			voice.play_line("rainbow_star")
 	elif board_index == 20:
 		voice.play_blueberry()
 	else:
@@ -1219,11 +1237,29 @@ func _fail() -> void:
 	hud.show_fail(board.get("objective", {}).get("label", ""), int(score), int(distance), stars_collected)
 
 
+func _on_pause() -> void:
+	if state != State.PLAYING:
+		return
+	is_game_paused = true
+	get_tree().paused = true
+	hud.show_pause()
+
+
+func _on_resume() -> void:
+	is_game_paused = false
+	get_tree().paused = false
+	hud.hide_pause()
+
+
 func _on_retry() -> void:
+	if is_game_paused:
+		_on_resume()
 	_instant_retry()
 
 
 func _on_menu() -> void:
+	if is_game_paused:
+		_on_resume()
 	Engine.time_scale = 1.0
 	get_tree().change_scene_to_file("res://scenes/roadmap.tscn")
 
