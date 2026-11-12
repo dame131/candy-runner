@@ -29,36 +29,36 @@ const BOARDS: Array = [
 	{
 		"name": "Candyland", "look": "strawberry milkshake & golden waffle",
 		"palette": {"tile": "#efa852", "tile_dark": "#d98c36", "side": "#6e3b16", "rail_left": "#ffffff", "rail_right": "#ffffff", "rim": "#e61938", "syrup": "#d84b7a", "sea": "#f48fb1", "sky": "#89cff0", "fog": "#dff2ff", "accent": "#ffd23f", "scenery": "#ff9ec7"},
-		"objective": {"type": "collect", "target": 15, "label": "Collect 15 sugar stars (45s Rush)"},
-		"obstacle": "rolling_ball", "speed": 11.5, "length": 520,
+		"objective": {"type": "collect", "target": 6, "label": "Collect 6 sugar stars"},
+		"obstacle": "rolling_ball", "speed": 8.5, "length": 250,
 		"music": {"tempo": 124, "root": 60, "scale": [0, 2, 4, 7, 9], "wave": 0},
 	},
 	{
 		"name": "Chocolate World", "look": "caramel river",
 		"palette": {"tile": "#5a3a22", "tile_dark": "#4a2c18", "side": "#2a1608", "rail_left": "#ffd23f", "rail_right": "#ff9ec7", "rim": "#ffb347", "syrup": "#3a1c05", "sea": "#c47a1e", "sky": "#ffe0b3", "fog": "#f7c98f", "accent": "#ffd23f", "scenery": "#8a5a2a"},
-		"objective": {"type": "distance", "target": 540, "no_fall": true, "label": "Run 540m without falling (45s Rush)"},
-		"obstacle": "wide_pit", "speed": 12.0, "length": 540,
+		"objective": {"type": "distance", "target": 240, "no_fall": false, "label": "Run 240m to the next bakery"},
+		"obstacle": "wide_pit", "speed": 9.0, "length": 280,
 		"music": {"tempo": 126, "root": 55, "scale": [0, 3, 5, 7, 10], "wave": 1},
 	},
 	{
 		"name": "Gummy Jungle", "look": "green jelly",
 		"palette": {"tile": "#7ed957", "tile_dark": "#5cbf3a", "side": "#2a4a1a", "rail_left": "#a8e063", "rail_right": "#ffb347", "rim": "#ff8a00", "syrup": "#1e4d12", "sea": "#4ecb5d", "sky": "#e3ffd6", "fog": "#c8f7b0", "accent": "#ff8a00", "scenery": "#3fae5a"},
-		"objective": {"type": "jumps", "target": 10, "label": "Jump 10 holes (45s Rush)"},
-		"obstacle": "blocker", "speed": 12.0, "length": 540,
+		"objective": {"type": "jumps", "target": 3, "label": "Jump 3 candy holes"},
+		"obstacle": "blocker", "speed": 9.2, "length": 300,
 		"music": {"tempo": 128, "root": 62, "scale": [0, 2, 3, 7, 9], "wave": 0},
 	},
 	{
 		"name": "Neon Night", "look": "purple glow",
 		"palette": {"tile": "#3a2a5e", "tile_dark": "#2c1e4a", "side": "#150a2e", "rail_left": "#ff2fb3", "rail_right": "#00e5ff", "rim": "#ff2fb3", "syrup": "#12041f", "sea": "#b5179e", "sky": "#2a1052", "fog": "#3d1a6e", "accent": "#00e5ff", "scenery": "#7b2fbe"},
-		"objective": {"type": "score", "target": 1200, "label": "Score 1,200 points (45s Rush)"},
-		"obstacle": "sliding_hole", "speed": 12.0, "length": 540,
+		"objective": {"type": "score", "target": 350, "label": "Score 350 sweet points"},
+		"obstacle": "sliding_hole", "speed": 9.5, "length": 320,
 		"music": {"tempo": 132, "root": 57, "scale": [0, 3, 5, 6, 10], "wave": 1},
 	},
 	{
 		"name": "Strawberry Fields", "look": "red",
 		"palette": {"tile": "#f7d774", "tile_dark": "#e8c25e", "side": "#5e1a1a", "rail_left": "#ff2e4d", "rail_right": "#7ed957", "rim": "#ff2e4d", "syrup": "#5e0a1a", "sea": "#ff5c6e", "sky": "#ffe3e3", "fog": "#ffc9c9", "accent": "#ff2e4d", "scenery": "#e85d75"},
-		"objective": {"type": "streak", "target": 5, "label": "Collect 5 stars in a row (45s Rush)"},
-		"obstacle": "rolling_ball", "speed": 12.0, "length": 540,
+		"objective": {"type": "streak", "target": 3, "label": "Collect 3 stars in a row"},
+		"obstacle": "rolling_ball", "speed": 9.8, "length": 340,
 		"music": {"tempo": 128, "root": 64, "scale": [0, 2, 4, 7, 9], "wave": 0},
 	},
 	{
@@ -284,19 +284,29 @@ func _ensure_built() -> void:
 		if i >= legacy_n and i < 50:
 			var lap: String = "II" if i < legacy_n + 20 else "III"
 			b["name"] = "%s %s" % [str(src.get("name", "Board")), lap]
-		# 60s on board 1 ramping to 90s on board 100.
-		var run_t: int = int(round(60.0 + 30.0 * float(i) / float(TOTAL_BOARDS - 1)))
-		var spd: float = float(src.get("speed", 12.0))
-		if i >= legacy_n and i < 50:
-			spd += 0.08 * float(i - legacy_n + 1)
+		# Gentle beginner-friendly progression curve:
+		# Boards 1-5 start at 28-40s with relaxed speeds (8.5-9.8 m/s) and achievable goals.
+		var run_t: int
+		if i < 5:
+			run_t = 28 + i * 3
+		elif i < 20:
+			run_t = 40 + int(round(20.0 * float(i - 5) / 14.0))
+		else:
+			run_t = int(round(60.0 + 20.0 * float(i - 20) / float(TOTAL_BOARDS - 21)))
+
+		var spd: float = float(src.get("speed", 10.5))
+		if i >= 5 and i < legacy_n:
+			spd = clampf(spd, 9.8, 11.5)
+		elif i >= legacy_n and i < 50:
+			spd += 0.05 * float(i - legacy_n + 1)
 		elif i >= 50:
-			spd += 0.04 * float(i - 50)
+			spd += 0.03 * float(i - 50)
 		b["speed"] = spd
 		b["length"] = int(round(float(run_t) * spd / ACT_AVG_INV))
 		b["run_time"] = run_t
 		b["par_time"] = float(run_t)
-		var diff: float = 1.0 + 0.012 * float(maxi(0, i - 20))
-		_retune_objective(b, run_t, diff)
+		var diff: float = 1.0 + 0.010 * float(maxi(0, i - 20))
+		_retune_objective(b, run_t, diff, i)
 		_all.append(b)
 
 
@@ -304,10 +314,18 @@ func _round100(v: float) -> int:
 	return maxi(100, int(round(v / 100.0)) * 100)
 
 
-func _retune_objective(b: Dictionary, run_t: int, diff: float) -> void:
+func _retune_objective(b: Dictionary, run_t: int, diff: float, board_idx: int = 0) -> void:
 	var o: Dictionary = b["objective"]
-	var k: float = float(run_t) / 45.0
 	var length: int = int(b["length"])
+
+	# Early boards (1-5) keep their gentle, accessible targets directly!
+	if board_idx < 5:
+		if str(o.get("type", "")) == "distance":
+			o["target"] = mini(int(o.get("target", 240)), length)
+		o["label"] = _make_label(o, run_t)
+		return
+
+	var k: float = float(run_t) / 45.0
 	match str(o.get("type", "")):
 		"collect":
 			o["target"] = int(round(float(o["target"]) * k * diff))

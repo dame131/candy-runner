@@ -37,7 +37,7 @@ var base_speed: float = 9.0
 var speed: float = 9.0
 var wind_offset: float = 0.0
 
-var hearts: int = 3
+var hearts: int = 4
 var invincible: float = 0.0
 var shield_on: bool = false
 var magnet_timer: float = 0.0
@@ -90,8 +90,8 @@ var _speed_pct: int = 100
 var is_game_paused: bool = false
 
 # --- Controls forgiveness ---
-const COYOTE_TIME: float = 0.12      # 120 ms to still jump after the ledge/hole edge
-const JUMP_BUFFER: float = 0.12      # a tap just before landing fires on touchdown
+const COYOTE_TIME: float = 0.22      # 220 ms to still jump after the ledge/hole edge
+const JUMP_BUFFER: float = 0.24      # 240 ms tap just before landing fires on touchdown
 var _coyote_left: float = -1.0
 var _jump_buffer: float = 0.0
 var _fall_grace: float = 0.0
@@ -186,8 +186,7 @@ func _ready() -> void:
 	character.set_outfit(Save.get_current_look())
 
 	# Apply Equipped Abilities from the Store!
-	if Save.has_ability("extra_heart"):
-		hearts = 4
+	hearts = 5 if Save.has_ability("extra_heart") else 4
 	if Save.has_ability("start_shield"):
 		shield_on = true
 	if Save.has_ability("star_magnet"):
@@ -302,7 +301,7 @@ func _physics_process(delta: float) -> void:
 				player_y = 0.0
 				player.position.y = 0.0
 				grounded = true
-				invincible = 1.5
+				invincible = 2.4
 				state = State.PLAYING
 		return
 	if state != State.PLAYING:
@@ -820,9 +819,9 @@ func _on_hit(ob: Obstacle) -> void:
 	streak = 0
 	_combo_timer = 0.0
 	ob.consumed = true
-	invincible = 1.5
-	stumble_timer = 0.8
-	_trigger_shake(0.32, 0.38)
+	invincible = 2.2
+	stumble_timer = 0.5
+	_trigger_shake(0.28, 0.32)
 	_trigger_hitstop(0.06, 0.22)
 	hud.flash_screen(Color.html("#ff2e55"), 0.34)
 	_spawn_burst(player.global_position + Vector3(0, 0.8, -0.3), Color.html("#ff2e55"), 28)
@@ -1032,7 +1031,7 @@ func _instant_retry() -> void:
 	character.reset_pose()
 	character.set_rush_aura(false)
 
-	hearts = 4 if Save.has_ability("extra_heart") else 3
+	hearts = 5 if Save.has_ability("extra_heart") else 4
 	shield_on = Save.has_ability("start_shield")
 	magnet_timer = 9999.0 if Save.has_ability("star_magnet") else 0.0
 	invincible = 0.0

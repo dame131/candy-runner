@@ -106,50 +106,61 @@ void fragment() {
 		float max_c = max(col.r, max(col.g, col.b));
 		float min_c = min(col.r, min(col.g, col.b));
 		float sat = max_c - min_c;
-		// Hair curls are dark/low-luminance (lum < 0.36) and not high-saturation rainbow beads
-		if (lum < 0.38 && sat < 0.26) {
-			vec3 tinted_hair = hair_target_col.rgb * (0.35 + 1.55 * lum);
-			col = mix(col, tinted_hair, hair_tint_strength * 0.88);
+		if (lum < 0.42 && sat < 0.30) {
+			vec3 tinted_hair = hair_target_col.rgb * (0.28 + 1.45 * lum);
+			col = mix(col, tinted_hair, hair_tint_strength * 0.92);
 		}
 	}
 
-	// 2. Top Recoloring (Cropped Hoodie / Jacket / Top in UV.y 0.25..0.53)
-	float pinkness = clamp((col.r - col.g - 0.04) * 6.0, 0.0, 1.0);
-	if (top_tint_strength > 0.01 && uv.y > 0.25 && uv.y < 0.53 && pinkness > 0.12) {
-		vec3 tinted_top = top_target_col.rgb * (0.42 + 0.78 * lum);
-		col = mix(col, tinted_top, pinkness * top_tint_strength * 0.90);
-	}
-
-	// 3. Bottom Recoloring & Style (0 = Shorts, 1 = Full-Length Jeans, 2 = Full-Length Leggings)
-	float blueness = clamp((col.b - col.r - 0.02) * 5.5, 0.0, 1.0);
-	if (uv.y > 0.44 && uv.y < 0.70 && blueness > 0.12) {
-		if (bot_tint_strength > 0.01 || bottom_style_mode > 0) {
-			vec3 tinted_bot = bot_target_col.rgb * (0.42 + 0.82 * lum);
-			col = mix(col, tinted_bot, max(bot_tint_strength, float(bottom_style_mode)) * 0.90);
+	// 2. Top / Hoodie Recoloring (UV.y 0.24..0.52)
+	// Covers Dijah's hoodie torso and long sleeves while preserving brown neck/hands
+	if (top_tint_strength > 0.01 && uv.y >= 0.24 && uv.y < 0.52) {
+		bool is_skin_hand = (uv.y > 0.44 && abs(uv.x - 0.5) > 0.22 && (col.r > col.b + 0.08) && lum < 0.60);
+		bool is_neck = (uv.y < 0.30 && abs(uv.x - 0.5) < 0.09 && (col.r > col.b + 0.08));
+		if (!is_skin_hand && !is_neck) {
+			vec3 tinted_top = top_target_col.rgb * (0.32 + 0.88 * lum);
+			if (top_target_col.r > 0.88 && top_target_col.g > 0.88 && top_target_col.b > 0.88) {
+				tinted_top = vec3(clamp(lum * 1.25, 0.15, 1.0));
+			}
+			col = mix(col, tinted_top, top_tint_strength * 0.95);
 		}
 	}
-	// If Jeans (mode 1) or Leggings (mode 2) are equipped, extend the pants down Dijah's legs (UV.y 0.56..0.855) above her white crew socks!
-	if (bottom_style_mode > 0 && uv.y >= 0.56 && uv.y < 0.855) {
-		// Detect warm brown leg skin (R > G > B, not white socks or pink shoes)
-		float skin_mask = clamp((col.r - col.g - 0.06) * 7.0, 0.0, 1.0) * clamp((col.g - col.b - 0.03) * 7.0, 0.0, 1.0) * step(col.r, 0.84);
-		if (skin_mask > 0.15) {
-			vec3 pant_col = bot_target_col.rgb * (0.38 + 0.95 * lum);
+
+	// 3. Bottoms Recoloring & Style (Shorts, Jeans, Leggings)
+	// Base Shorts (uv.y 0.46..0.56)
+	if (uv.y >= 0.46 && uv.y < 0.56) {
+		bool is_skin_hand = (abs(uv.x - 0.5) > 0.26 && (col.r > col.b + 0.08) && lum < 0.60);
+		if (!is_skin_hand) {
+			if (bot_tint_strength > 0.01 || bottom_style_mode > 0) {
+				vec3 tinted_bot = bot_target_col.rgb * (0.32 + 0.88 * lum);
+				col = mix(col, tinted_bot, 0.95);
+			}
+		}
+	}
+	// Full-Length Jeans (mode 1) or Leggings (mode 2) down the legs (uv.y 0.55..0.86) above white socks!
+	if (bottom_style_mode > 0 && uv.y >= 0.55 && uv.y < 0.86) {
+		if (lum < 0.78) {
+			vec3 pant_col = bot_target_col.rgb * (0.35 + 0.88 * lum);
 			if (bottom_style_mode == 1) {
-				// Subtle vertical denim weave + side seam highlight for Jeans
-				float weave = sin(uv.x * 420.0 + uv.y * 420.0) * 0.025;
+				float weave = sin(uv.x * 480.0 + uv.y * 480.0) * 0.035;
 				pant_col += vec3(weave);
 			} else {
-				// Sleek athletic sheen for Leggings
-				pant_col = mix(pant_col, pant_col * 1.12, smoothstep(0.45, 0.68, lum));
+				pant_col = mix(pant_col, pant_col * 1.15, smoothstep(0.40, 0.65, lum));
 			}
-			col = mix(col, pant_col, skin_mask * 0.95);
+			col = mix(col, pant_col, 0.98);
 		}
 	}
 
-	// 4. Flat Athletic Shoes Recoloring (UV.y > 0.72)
-	if (shoe_tint_strength > 0.01 && uv.y > 0.72 && pinkness > 0.12) {
-		vec3 tinted_shoe = shoe_target_col.rgb * (0.42 + 0.78 * lum);
-		col = mix(col, tinted_shoe, pinkness * shoe_tint_strength * 0.90);
+	// 4. Flat Athletic Shoes Recoloring (UV.y >= 0.865)
+	if (shoe_tint_strength > 0.01 && uv.y >= 0.865) {
+		float shoe_mask = smoothstep(0.865, 0.885, uv.y);
+		vec3 tinted_shoe = shoe_target_col.rgb * (0.28 + 0.95 * lum);
+		if (shoe_target_col.r > 0.88 && shoe_target_col.g > 0.88 && shoe_target_col.b > 0.88) {
+			tinted_shoe = vec3(clamp(lum * 1.25, 0.15, 1.0));
+		} else if (shoe_target_col.r < 0.18 && shoe_target_col.g < 0.18 && shoe_target_col.b < 0.18) {
+			tinted_shoe = vec3(clamp(lum * 0.35, 0.04, 0.40));
+		}
+		col = mix(col, tinted_shoe, shoe_mask * shoe_tint_strength * 0.98);
 	}
 
 	// Preserve 88% of the rich Pixar subsurface lighting baked in the render + 12% live 3D scene sun shading
