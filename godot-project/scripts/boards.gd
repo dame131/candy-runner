@@ -177,7 +177,7 @@ const BOARDS: Array = [
 
 # Outfits for the shop. Cost is in sugar stars (the currency, not the score).
 const OUTFITS: Array = [
-	{"name": "Default Outfit", "hair": "#2b160c", "top": "#0e9b8a", "bottom": "#ff5c8a", "bottom_style": "shorts", "shoes": "#ffffff", "cape": "", "cost": 0},
+	{"name": "Default Outfit", "hair": "#2b160c", "top": "#f49ac2", "bottom": "#4f6d9a", "bottom_style": "shorts", "shoes": "#f282b4", "cape": "", "cost": 0},
 	{"name": "Rainbow Sparkle", "hair": "#2b160c", "top": "#7be3f6", "bottom": "#a584f7", "bottom_style": "shorts", "shoes": "#ffd23f", "cape": "", "cost": 150},
 	{"name": "Berry Sweet", "hair": "#8a1c4a", "top": "#e62e6b", "bottom": "#2e4678", "bottom_style": "jeans", "shoes": "#ff5c8a", "cape": "", "cost": 200},
 	{"name": "Golden Honey", "hair": "#b8732a", "top": "#ffd23f", "bottom": "#8a5a2a", "bottom_style": "shorts", "shoes": "#ffffff", "cape": "#ffd23f", "cost": 300},
@@ -197,7 +197,7 @@ const HAIR_ITEMS: Array = [
 ]
 
 const TOP_ITEMS: Array = [
-	{"name": "Classic Teal 'DJH' Hoodie", "style": "Cropped Fleece Hoodie", "color": "#0e9b8a", "tint": 0.0, "cost": 0},
+	{"name": "Classic Pink 'DJH' Hoodie", "style": "Cropped Fleece Hoodie", "color": "#f49ac2", "tint": 0.0, "cost": 0},
 	{"name": "Sky Blue 'DJH' Hoodie", "style": "Cloud Blue Pullover", "color": "#64d2ff", "tint": 1.0, "cost": 50},
 	{"name": "Berry Red Varsity Top", "style": "Strawberry Sport Top", "color": "#e62e6b", "tint": 1.0, "cost": 65},
 	{"name": "Sunny Lemon Zip-Up", "style": "Bright Citrus Track Top", "color": "#ffd23f", "tint": 1.0, "cost": 75},
@@ -211,7 +211,7 @@ const TOP_ITEMS: Array = [
 
 # Bottoms: Shorts, Full-Length Jeans, and Full-Length Athletic Leggings!
 const BOTTOM_ITEMS: Array = [
-	{"name": "Classic Pink Runner Shorts", "style": "shorts", "label": "Athletic Sport Shorts", "color": "#ff5c8a", "tint": 0.0, "cost": 0},
+	{"name": "Classic Blue Denim Shorts", "style": "shorts", "label": "Cuffed Denim Shorts", "color": "#4f6d9a", "tint": 0.0, "cost": 0},
 	{"name": "Light Wash Summer Shorts", "style": "shorts", "label": "Cuffed Denim Shorts", "color": "#7eb6e6", "tint": 1.0, "cost": 50},
 	{"name": "Lavender Sugar Shorts", "style": "shorts", "label": "Pastel Denim Shorts", "color": "#a584f7", "tint": 1.0, "cost": 65},
 	{"name": "Berry Pink Runner Shorts", "style": "shorts", "label": "Athletic Sport Shorts", "color": "#ec407a", "tint": 1.0, "cost": 75},
