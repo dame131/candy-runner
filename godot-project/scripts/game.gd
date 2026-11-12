@@ -209,14 +209,16 @@ func _ready() -> void:
 	_shield_dome.visible = false
 	player.add_child(_shield_dome)
 
-	# --- 3D Chase Camera (Medium-Telephoto 46° FOV matching 3D Mockup) ---
+	# --- 3D Chase Camera (wide 74 deg FOV, pulled back so Dijah reads small
+	# on screen and the track ahead stays visible — the Nov 11 46 deg
+	# close-up filled the frame with her and hid the track) ---
 	camera = Camera3D.new()
-	camera.fov = 46.0
+	camera.fov = 74.0
 	camera.near = 0.1
 	camera.far = 250.0
-	camera.position = Vector3(0, 2.62, 3.92)
+	camera.position = Vector3(0, 3.1, 5.2)
 	add_child(camera)
-	camera.look_at_from_position(Vector3(0, 2.62, 3.92), Vector3(0, 0.72, -3.2), Vector3.UP)
+	camera.look_at_from_position(Vector3(0, 3.1, 5.2), Vector3(0, 0.9, -8.0), Vector3.UP)
 
 	# --- Track ---
 	builder = TrackBuilder.new(board, rng)
@@ -488,7 +490,7 @@ func _physics_process(delta: float) -> void:
 	var flow_intensity: float = clampf(float(_speed_pct - 100) / 55.0 + (0.20 if rush else 0.0) + (0.15 if _fever_timer > 0.0 else 0.0), 0.18, 0.65)
 	hud.set_speed_lines(rush, flow_intensity)
 	character.set_rush_aura(streak >= rush_req or speed_timer > 0.0 or _fever_timer > 0.0)
-	var target_fov: float = clampf(46.0 + float(_speed_pct - 100) * 0.22 + (3.0 if speed_timer > 0.0 else 0.0), 46.0, 58.5)
+	var target_fov: float = clampf(74.0 + float(_speed_pct - 100) * 0.22 + (3.0 if speed_timer > 0.0 else 0.0), 74.0, 86.5)
 	camera.fov = lerpf(camera.fov, target_fov, delta * 4.5)
 
 	# --- objectives (latch: keep running to the finish line for the 3-star rating) ---
@@ -516,8 +518,8 @@ func _physics_process(delta: float) -> void:
 		_shake_timer = maxf(0.0, _shake_timer - delta)
 		var cur_s: float = _shake_amp * (_shake_timer / 0.35)
 		shake_ofs = Vector3(rng.randf_range(-cur_s, cur_s), rng.randf_range(-cur_s, cur_s), 0.0)
-	camera.position = Vector3(player.position.x * 0.42, 2.62 + player_y * 0.22, player.position.z + 3.92) + shake_ofs
-	camera.look_at(Vector3(player.position.x * 0.55, 0.72 + player_y * 0.15, player.position.z - 3.2))
+	camera.position = Vector3(player.position.x * 0.35, 3.1 + player_y * 0.22, player.position.z + 5.2) + shake_ofs
+	camera.look_at(Vector3(player.position.x * 0.5, 0.9 + player_y * 0.15, player.position.z - 8.0))
 	_cam_bank = lerpf(_cam_bank, clampf(-steer_vel * 0.015, -0.06, 0.06), delta * 8.0)
 	camera.rotation.z += _cam_bank
 
@@ -542,9 +544,10 @@ func _track_hole(ob: Obstacle) -> void:
 				score += 75.0 * _score_mult()
 				hud.trigger_combo_pop()
 				hud.trigger_score_pop()
-				hud.show_message("CLOSE CALL! 🔥 +75", Color.html("#00e5ff"), 0.9)
+				hud.show_message("CLOSE CALL! +75", Color.html("#00e5ff"), 0.9)
 				_spawn_ring_wave(player.global_position + Vector3(0, 0.5, 0), Color.html("#00e5ff"))
-				_spawn_floating_3d_text(player.global_position + Vector3(0, 1.35, 0), "CLOSE CALL +75!", Color.html("#00e5ff"))
+				# (no 3D label here — the HUD banner above already says it;
+				# a second copy at the player drew the same words mid-screen)
 				_near_miss_juice()
 				Music.play_sfx("streak")
 		return
@@ -574,7 +577,7 @@ func _track_hole(ob: Obstacle) -> void:
 					hud.trigger_score_pop()
 					hud.show_message("PERFECT JUMP +75!", Color.html("#ffd23f"), 1.0)
 					_spawn_ring_wave(player.global_position + Vector3(0, 0.4, 0), Color.html("#ffd23f"))
-					_spawn_floating_3d_text(player.global_position + Vector3(0, 1.4, 0), "PERFECT +75", Color.html("#ffd23f"))
+					# (no 3D label — HUD banner already says it)
 					_add_rush(0.10)
 					Music.play_sfx("streak")
 		elif dx < 3.3 and player_y < 0.3:
@@ -586,7 +589,7 @@ func _track_hole(ob: Obstacle) -> void:
 			hud.trigger_combo_pop()
 			hud.trigger_score_pop()
 			hud.show_message("NEAR MISS +50", Color.html("#5fe3c0"), 1.0)
-			_spawn_floating_3d_text(player.global_position + Vector3(0, 1.3, 0), "NEAR MISS +50", Color.html("#5fe3c0"))
+			# (no 3D label — HUD banner already says it)
 			_near_miss_juice()
 			Music.play_sfx("streak")
 			voice.play_line("near_miss")
@@ -855,21 +858,21 @@ func _collect_star(s: Star) -> void:
 		voice.play_general()
 	var rush_req: int = 3 if Save.has_ability("fast_rush") else 5
 	if streak == rush_req:
-		hud.show_message("⚡ SWEET STREAK! 1.5x", Color.html("#ff2fb3"), 1.3)
+		hud.show_message("SWEET STREAK! 1.5x", Color.html("#ff2fb3"), 1.3)
 		hud.flash_screen(Color.html("#ff2fb3"), 0.20)
 		Music.play_sfx("streak")
 	elif streak == 10:
-		hud.show_message("🔥 10x SUPER STREAK! 2.0x", Color.html("#ffd23f"), 1.3)
+		hud.show_message("10x SUPER STREAK! 2.0x", Color.html("#ffd23f"), 1.3)
 		hud.flash_screen(Color.html("#ffd23f"), 0.22)
 		_spawn_ring_wave(player.global_position + Vector3(0, 0.6, 0), Color.html("#ffd23f"))
 		Music.play_sfx("streak")
 	elif streak == 20:
-		hud.show_message("🚀 20x HYPER FLOW! 3.0x", Color.html("#00e5ff"), 1.4)
+		hud.show_message("20x HYPER FLOW! 3.0x", Color.html("#00e5ff"), 1.4)
 		hud.flash_screen(Color.html("#00e5ff"), 0.25)
 		_spawn_ring_wave(player.global_position + Vector3(0, 0.6, 0), Color.html("#00e5ff"))
 		Music.play_sfx("streak")
 	elif streak >= 30 and streak % 10 == 0:
-		hud.show_message("👑 %dx UNSTOPPABLE FEVER!" % streak, Color.html("#ff8a00"), 1.4)
+		hud.show_message("%dx UNSTOPPABLE FEVER!" % streak, Color.html("#ff8a00"), 1.4)
 		hud.flash_screen(Color.html("#ff8a00"), 0.26)
 		_spawn_ring_wave(player.global_position + Vector3(0, 0.6, 0), Color.html("#ff8a00"))
 		Music.play_sfx("streak")
@@ -886,12 +889,12 @@ func _collect_powerup(p: PowerUp) -> void:
 		"speed":
 			speed_timer = 5.0 * dur_mult
 			hud.flash_screen(Color.html("#ffd23f"), 0.24)
-			hud.show_message("⚡ TURBO SPEED BOOST!", Color.html("#ffd23f"), 1.2)
+			hud.show_message("TURBO SPEED BOOST!", Color.html("#ffd23f"), 1.2)
 			voice.play_line("speed_boost")
 		"shield":
 			shield_on = true
 			hud.flash_screen(Color.html("#00e5ff"), 0.22)
-			hud.show_message("🛡️ SHIELD ACTIVE!", Color.html("#00e5ff"), 1.2)
+			hud.show_message("SHIELD ACTIVE!", Color.html("#00e5ff"), 1.2)
 		"magnet":
 			magnet_timer = maxf(magnet_timer, 8.0 * dur_mult)
 			hud.flash_screen(Color.html("#ff2e4d"), 0.20)
@@ -1053,7 +1056,7 @@ func _instant_retry() -> void:
 
 	hud.hide_panels()
 	hud.flash_screen(Color.html("#ffd23f"), 0.22)
-	hud.show_message("⚡ INSTANT RETRY — GO!", Color.html("#ffd23f"), 1.0)
+	hud.show_message("INSTANT RETRY — GO!", Color.html("#ffd23f"), 1.0)
 	_update_hud()
 
 
