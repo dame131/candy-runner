@@ -31,7 +31,7 @@ var _is_sliding: bool = false
 var _is_showcase: bool = false
 
 
-var _tex_dir: String = "C:/Users/Dame/.gemini/antigravity/brain/dd782988-7742-4fe9-bea9-4c10830035ae/scratch/"
+var _tex_dir: String = "res://textures/char/"
 
 func _ready() -> void:
 	_tex_back_l = _load_tex(_tex_dir + "dijah_back_l.png")
@@ -49,10 +49,15 @@ func _ready() -> void:
 	_build_pixar_3d_rig()
 
 
-func _load_tex(abs_path: String) -> Texture2D:
-	var img := Image.new()
-	if img.load(abs_path) == OK:
-		return ImageTexture.create_from_image(img)
+func _load_tex(path: String) -> Texture2D:
+	if ResourceLoader.exists(path):
+		var res = load(path)
+		if res is Texture2D:
+			return res
+	if FileAccess.file_exists(path):
+		var img := Image.new()
+		if img.load(path) == OK:
+			return ImageTexture.create_from_image(img)
 	return null
 
 
@@ -156,7 +161,10 @@ void fragment() {
 """
 	_mat = ShaderMaterial.new()
 	_mat.shader = sh
-	_mat.set_shader_parameter("char_tex", _tex_back_l)
+	var initial_tex: Texture2D = _tex_back_mid if _tex_back_mid != null else _tex_back_l
+	if initial_tex == null:
+		initial_tex = _tex_front
+	_mat.set_shader_parameter("char_tex", initial_tex)
 	_mesh_inst.material_override = _mat
 	_model.add_child(_mesh_inst)
 
@@ -396,6 +404,8 @@ func reset_pose() -> void:
 		_mesh_inst.rotation = Vector3.ZERO
 		_mesh_inst.position = Vector3(0.0, 0.96, 0.0)
 		_mesh_inst.scale = Vector3.ONE
-	if _mat and _tex_back_l != null:
-		_mat.set_shader_parameter("char_tex", _tex_back_l)
+	if _mat:
+		var r_tex: Texture2D = _tex_back_mid if _tex_back_mid != null else _tex_back_l
+		if r_tex != null:
+			_mat.set_shader_parameter("char_tex", r_tex)
 		_mat.set_shader_parameter("run_stride_skew", 0.0)

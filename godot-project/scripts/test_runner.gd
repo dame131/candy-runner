@@ -1,11 +1,6 @@
-extends MainLoop
+extends SceneTree
 
-var _ran: bool = false
-
-func _process(_delta: float) -> bool:
-	if _ran:
-		return true
-	_ran = true
+func _init() -> void:
 	print("=== STARTING CANDY RUNNER VERIFICATION SUITE ===")
 	var failures: int = 0
 	
@@ -156,5 +151,29 @@ func _process(_delta: float) -> bool:
 			print("[PASS] Save manager endless persistence verified")
 		sm.free()
 
+	# Test 6: Dijah Character 3D Asset & Textures Validation
+	var dc_script = load("res://scripts/dijah_character.gd")
+	if dc_script == null:
+		print("[FAIL] Could not load dijah_character.gd")
+		failures += 1
+	else:
+		var dc = dc_script.new()
+		dc._ready()
+		var char_tex = dc._mat.get_shader_parameter("char_tex") if dc._mat != null else null
+		print("[TEST 6] Dijah character rig loaded. Initial char_tex: %s" % [char_tex])
+		if char_tex == null or dc._tex_back_mid == null or dc._tex_front == null or dc._tex_jump == null:
+			print("[FAIL] Dijah character textures missing or null (would render flat white quad)")
+			failures += 1
+		else:
+			print("[PASS] Dijah character 3D textures loaded cleanly from res://textures/char/")
+			dc.animate_idle(0.016)
+			var idle_tex = dc._mat.get_shader_parameter("char_tex")
+			if idle_tex != dc._tex_front:
+				print("[FAIL] Boutique / Idle showcase texture not set to front pose")
+				failures += 1
+			else:
+				print("[PASS] Boutique / Idle showcase front pose verified")
+		dc.free()
+
 	print("=== VERIFICATION COMPLETE: %d FAILURES ===" % failures)
-	return true
+	quit(failures)

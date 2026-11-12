@@ -260,23 +260,16 @@ func build_segment(seg_index: int, z_start: float, is_finish: bool, finish_z: fl
 	var hole_rows: Dictionary = {}
 
 	# --- Board obstacles ---
-	if seg_index >= 2 and not is_finish:
+	# Generously spaced: hazards appear every 2 segments (every 24 meters)
+	# with exactly 1 obstacle per hazard segment, giving the player ~2.0-2.5s reaction time!
+	var should_spawn_hazard: bool = (seg_index >= 3) and (seg_index % 2 == 1) and not is_finish
+	if should_spawn_hazard:
 		var ob_kind: String = board.get("obstacle", "hole")
 		if ob_kind == "mixed":
 			ob_kind = MIXED_POOL[rng.randi_range(0, MIXED_POOL.size() - 1)]
 		var ob_lane: int = rng.randi_range(-1, 1)
 		var ob_row: int = rng.randi_range(1, 3)
 		_place_obstacle(seg, obstacles, tiles, hole_rows, ob_kind, ob_lane, ob_row)
-		if seg_index > 6 and rng.randf() < 0.35:
-			var ob2_kind: String = board.get("obstacle", "hole")
-			if ob2_kind == "mixed":
-				ob2_kind = MIXED_POOL[rng.randi_range(0, MIXED_POOL.size() - 1)]
-			var ob2_row: int = (ob_row + 2) % ROWS
-			_place_obstacle(seg, obstacles, tiles, hole_rows, ob2_kind, rng.randi_range(-1, 1), ob2_row)
-		if ob_kind not in ["hole", "wide_pit", "cloud_gap", "sliding_hole"] and rng.randf() < 0.45:
-			var h_row: int = rng.randi_range(0, ROWS - 1)
-			if not hole_rows.has(h_row):
-				_place_obstacle(seg, obstacles, tiles, hole_rows, "hole", rng.randi_range(-1, 1), h_row)
 
 	# --- Star patterns ---
 	var star_chance: float = 0.75 if board.get("objective", {}).get("type", "") == "collect_all" else 0.40
